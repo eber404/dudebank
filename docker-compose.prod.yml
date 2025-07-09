@@ -1,0 +1,29 @@
+services:
+  api1:
+    build:
+      context: .
+      target: production
+    environment:
+      - BUN_ENV=production
+    restart: unless-stopped
+
+  api2:
+    build:
+      context: .
+      target: production
+    environment:
+      - BUN_ENV=production
+    restart: unless-stopped
+
+  nginx:
+    restart: unless-stopped
+
+  postgres:
+    environment:
+      POSTGRES_DB: rinha
+      POSTGRES_USER: rinha
+      POSTGRES_PASSWORD: rinha123
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
