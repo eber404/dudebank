@@ -1,20 +1,17 @@
 CREATE TABLE IF NOT EXISTS payments (
-    correlation_id VARCHAR(36) PRIMARY KEY,
-    amount DECIMAL(15,2) NOT NULL,
-    processor VARCHAR(20) NOT NULL DEFAULT 'pending',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    requested_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    processed_at TIMESTAMPTZ,
-    retry_count SMALLINT DEFAULT 0
+  correlation_id VARCHAR(36) PRIMARY KEY,
+  amount DECIMAL(15,2) NOT NULL,
+  processor VARCHAR(20) NOT NULL DEFAULT 'pending',
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  requested_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  processed_at TIMESTAMPTZ,
+  retry_count SMALLINT DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_payments_status_processor 
-ON payments(status, processor, created_at) 
-WHERE status = 'processed';
+DROP INDEX IF EXISTS idx_payments_summary_ultra;
 
-CREATE INDEX IF NOT EXISTS idx_payments_correlation_id ON payments(correlation_id);
-
-CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at);
-
-SELECT 'Database initialized successfully' AS status;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payments_covering_v2
+ON payments(status, processor) 
+INCLUDE (amount, created_at) 
+WHERE status = 'processed' AND processor IN ('default', 'fallback');

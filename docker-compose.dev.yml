@@ -1,13 +1,12 @@
 services:
-  api1:
+  api1: &api-service
     build:
       context: .
       target: development
-    env_file:
-      - .env.dev
     environment:
-      - NODE_ENV=${NODE_ENV}
-      - DEBUG=${DEBUG}
+      - BUN_ENV=development
+      - BUILD_TARGET=development
+      - DEBUG=true
     volumes:
       - .:/app
       - /app/node_modules
@@ -16,32 +15,19 @@ services:
     command: ["bun", "run", "dev"]
 
   api2:
-    build:
-      context: .
-      target: development
-    env_file:
-      - .env.dev
-    environment:
-      - NODE_ENV=${NODE_ENV}
-      - DEBUG=${DEBUG}
-    volumes:
-      - .:/app
-      - /app/node_modules
+    <<: *api-service
     ports:
       - "3002:8080"
-    command: ["bun", "run", "dev"]
+
+  nginx:
+    ports:
+      - "9999:80"
 
   postgres:
-    env_file:
-      - .env.dev
     ports:
       - "5432:5432" 
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # volumes:
+      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   redis:
     ports:

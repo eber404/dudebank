@@ -1,34 +1,21 @@
 services:
-  api1:
+  api1: &api-service
     build:
       context: .
       target: production
-    env_file:
-      - .env
     environment:
       - BUN_ENV=production
+      - BUILD_TARGET=production
+      - DEBUG=false
     restart: unless-stopped
 
   api2:
-    build:
-      context: .
-      target: production
-    env_file:
-      - .env
-    environment:
-      - BUN_ENV=production
-    restart: unless-stopped
+    <<: *api-service
 
   nginx:
     restart: unless-stopped
 
   postgres:
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
 
   redis:

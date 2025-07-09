@@ -1,33 +1,19 @@
-FROM oven/bun:alpine AS base
+FROM oven/bun:1.1.34-alpine AS base
 WORKDIR /app
-COPY package.json bun.lockb .
 
-FROM base AS build
-RUN bun install
-COPY . .
-RUN bun run build
+FROM base AS deps
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
 
 FROM base AS development
-RUN bun install
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 EXPOSE 8080
-USER bun
 CMD ["bun", "run", "dev"]
 
 FROM base AS production
-RUN bun install --production --frozen-lockfile
-COPY --from=build /app .
-
-ENV NODE_ENV=production
-ENV BUN_ENV=production
-
-RUN rm -rf src/tests/ \
-    && rm -rf docs/ \
-    && rm -rf .git/ \
-    && rm -rf *.md \
-    && rm -rf .env.example
-
-USER bun
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN bun build src/index.ts --outdir dist --target bun
 EXPOSE 8080
-
 CMD ["bun", "run", "start"]
