@@ -49,7 +49,7 @@ services:
       POSTGRES_PASSWORD: pass
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - backend
     deploy:

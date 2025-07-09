@@ -34,9 +34,9 @@ services:
       POSTGRES_DB: rinha_dev
       POSTGRES_USER: dev
       POSTGRES_PASSWORD: dev123
-    volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    # volumes:
+      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
 
   redis:
     ports:
