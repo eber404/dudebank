@@ -1,14 +1,14 @@
 {
-  "name": "dude-bank",
+  "name": "dudebank",
   "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "bun --watch run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist",
+    "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
     "docker:dev": "./scripts/dev.sh",
-    "docker:prod": "./scripts/prod.sh", 
+    "docker:prod": "./scripts/prod.sh",
     "test:local": "./scripts/test.sh",
     "build:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml build",
     "build:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml build",
@@ -22,5 +22,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "redis": "^5.6.0",
+    "postgres": "^3.4.5"
   }
 }

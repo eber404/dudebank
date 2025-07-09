@@ -3,9 +3,11 @@ services:
     build:
       context: .
       target: development
+    env_file:
+      - .env.dev
     environment:
-      - NODE_ENV=development
-      - DEBUG=true
+      - NODE_ENV=${NODE_ENV}
+      - DEBUG=${DEBUG}
     volumes:
       - .:/app
       - /app/node_modules
@@ -17,9 +19,11 @@ services:
     build:
       context: .
       target: development
+    env_file:
+      - .env.dev
     environment:
-      - NODE_ENV=development
-      - DEBUG=true
+      - NODE_ENV=${NODE_ENV}
+      - DEBUG=${DEBUG}
     volumes:
       - .:/app
       - /app/node_modules
@@ -28,25 +32,17 @@ services:
     command: ["bun", "run", "dev"]
 
   postgres:
+    env_file:
+      - .env.dev
     ports:
       - "5432:5432" 
     environment:
-      POSTGRES_DB: rinha_dev
-      POSTGRES_USER: dev
-      POSTGRES_PASSWORD: dev123
-    # volumes:
-      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      # - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   redis:
     ports:
       - "6379:6379"
-
-  adminer:
-    image: adminer:latest
-    ports:
-      - "8080:8080"
-    environment:
-      ADMINER_DEFAULT_SERVER: postgres
-    networks:
-      - backend

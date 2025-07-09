@@ -3,12 +3,18 @@ services:
     build:
       context: .
       target: ${BUILD_TARGET:-production}
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - DB_HOST=postgres
-      - REDIS_HOST=redis
-      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
-      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
+      - NODE_ENV=${NODE_ENV}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - PAYMENT_PROCESSOR_URL_DEFAULT=${PAYMENT_PROCESSOR_URL_DEFAULT}
+      - PAYMENT_PROCESSOR_URL_FALLBACK=${PAYMENT_PROCESSOR_URL_FALLBACK}
     networks:
       - backend
       - payment-processor
@@ -43,13 +49,15 @@ services:
 
   postgres:
     image: postgres:alpine
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: rinha
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - backend
     deploy:

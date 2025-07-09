@@ -1,16 +1,20 @@
--- Arquivo de inicialização do banco de dados
--- Este script é executado automaticamente quando o container PostgreSQL é criado
-
--- Exemplo de tabela para demonstração
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS payments (
+    correlation_id VARCHAR(36) PRIMARY KEY,
+    amount DECIMAL(15,2) NOT NULL,
+    processor VARCHAR(20) NOT NULL DEFAULT 'pending',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    requested_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    processed_at TIMESTAMPTZ,
+    retry_count SMALLINT DEFAULT 0
 );
 
--- Criar índices se necessário
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_payments_status_processor 
+ON payments(status, processor, created_at) 
+WHERE status = 'processed';
 
--- Log da execução
+CREATE INDEX IF NOT EXISTS idx_payments_correlation_id ON payments(correlation_id);
+
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at);
+
 SELECT 'Database initialized successfully' AS status;
