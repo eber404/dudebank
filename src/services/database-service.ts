@@ -1,6 +1,6 @@
 import { Pool } from 'pg'
 import { config } from '@/config'
-import type { ProcessedPayment, PaymentSummary, DatabaseRow } from '@/types'
+import type { ProcessedPayment, PaymentSummary } from '@/types'
 
 export class DatabaseService {
   private db: Pool
@@ -11,11 +11,25 @@ export class DatabaseService {
   }
 
   private async initDB(): Promise<void> {
-    try {
-      await this.db.query('SELECT 1')
-      console.log('Database connection established')
-    } catch (error) {
-      console.error('Error connecting to database:', error)
+    const maxRetries = 10
+    const retryDelay = 2000 // 2 seconds
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.db.query('SELECT 1')
+        console.log(`Database connection established on attempt ${attempt}`)
+        return
+      } catch (error) {
+        console.log(`Database connection attempt ${attempt}/${maxRetries} failed`)
+        
+        if (attempt === maxRetries) {
+          console.error('Failed to connect to database after all retries:', error)
+          return
+        }
+        
+        console.log(`Retrying in ${retryDelay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+      }
     }
   }
 
@@ -43,31 +57,58 @@ export class DatabaseService {
   }
 
   private buildSummaryQuery(from?: string, to?: string): { query: string; params: any[] } {
-    let query = `
-      SELECT 
-        processor,
-        COUNT(*) as total_requests,
-        COALESCE(SUM(amount), 0) as total_amount
-      FROM payments
-      WHERE status = 'processed'
-    `
     const params: any[] = []
-
+    
+    if (from && to) {
+      // Optimized query with BETWEEN for time range filtering
+      const query = `
+        SELECT 
+          processor,
+          COUNT(*) AS total_requests,
+          SUM(amount) AS total_amount
+        FROM payments
+        WHERE status = 'processed'
+          AND requested_at BETWEEN $1 AND $2
+        GROUP BY processor
+      `
+      params.push(from, to)
+      return { query, params }
+    }
+    
     if (from || to) {
-      const conditions = []
+      let query = `
+        SELECT 
+          processor,
+          COUNT(*) AS total_requests,
+          SUM(amount) AS total_amount
+        FROM payments
+        WHERE status = 'processed'
+      `
+      
       if (from) {
-        conditions.push(`requested_at >= $${params.length + 1}`)
+        query += ` AND requested_at >= $${params.length + 1}`
         params.push(from)
       }
       if (to) {
-        conditions.push(`requested_at <= $${params.length + 1}`)
+        query += ` AND requested_at <= $${params.length + 1}`
         params.push(to)
       }
-      query += ' AND ' + conditions.join(' AND ')
+      
+      query += ' GROUP BY processor'
+      return { query, params }
     }
 
-    query += ' GROUP BY processor'
-
+    // No time filtering - use the most optimized query
+    const query = `
+      SELECT 
+        processor,
+        COUNT(*) AS total_requests,
+        SUM(amount) AS total_amount
+      FROM payments
+      WHERE status = 'processed'
+      GROUP BY processor
+    `
+    
     return { query, params }
   }
 

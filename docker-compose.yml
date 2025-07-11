@@ -13,8 +13,10 @@ services:
       - backend
       - payment-processor
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -46,13 +48,21 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=rinha_dev
+      - POSTGRES_USER=dev
+      - POSTGRES_PASSWORD=dev123
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+      # - postgres_data:/var/lib/postgresql/data
     networks:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d rinha_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     deploy:
       resources:
         limits:
