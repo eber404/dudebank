@@ -1,1 +1,1 @@
-export { PaymentValidator } from './PaymentValidator'
+export { PaymentValidator } from './payment-validator'

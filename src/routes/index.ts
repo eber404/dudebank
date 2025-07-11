@@ -1,8 +1,8 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
-import { PaymentService } from '../services'
-import { PaymentValidator } from '../validators'
-import type { PaymentRequest } from '../types'
+import { PaymentService } from '@/services'
+import { PaymentValidator } from '@/validators'
+import type { PaymentRequest } from '@/types'
 
 const paymentService = new PaymentService()
 

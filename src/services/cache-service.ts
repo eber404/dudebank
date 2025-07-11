@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis'
-import { config } from '../config'
-import type { PaymentSummary } from '../types'
+import { config } from '@/config'
+import type { PaymentSummary } from '@/types'
 
 export class CacheService {
   private redis: Redis

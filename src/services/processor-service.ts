@@ -1,5 +1,5 @@
-import { config } from '../config'
-import type { PaymentProcessor, PaymentRequest, HealthCheckResponse } from '../types'
+import { config } from '@/config'
+import type { PaymentProcessor, PaymentRequest, HealthCheckResponse } from '@/types'
 
 export class ProcessorService {
   private processors: Map<string, PaymentProcessor>

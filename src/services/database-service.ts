@@ -1,6 +1,6 @@
 import { Pool } from 'pg'
-import { config } from '../config'
-import type { ProcessedPayment, PaymentSummary, DatabaseRow } from '../types'
+import { config } from '@/config'
+import type { ProcessedPayment, PaymentSummary, DatabaseRow } from '@/types'
 
 export class DatabaseService {
   private db: Pool

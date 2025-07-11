@@ -1,8 +1,8 @@
-import { config } from '../config'
-import { DatabaseService } from './DatabaseService'
-import { CacheService } from './CacheService'
-import { ProcessorService } from './ProcessorService'
-import type { PaymentRequest, PaymentSummary, ProcessedPayment } from '../types'
+import { config } from '@/config'
+import { DatabaseService } from './database-service'
+import { CacheService } from './cache-service'
+import { ProcessorService } from './processor-service'
+import type { PaymentRequest, PaymentSummary } from '@/types'
 
 export class PaymentService {
   private databaseService: DatabaseService

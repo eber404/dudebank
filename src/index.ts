@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
-import { config } from './config'
-import { routes } from './routes'
+import { config } from '@/config'
+import { routes } from '@/routes'
 
 new Elysia()
   .use(routes)
