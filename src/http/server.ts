@@ -1,23 +1,23 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
-import { PaymentService } from '@/services'
-import { PaymentValidator } from '@/validators'
+
+import { PaymentService } from '@/services/payment-service'
+import { PaymentRequestDTO } from '@/http/dtos/payment-request-dto'
 import type { PaymentRequest } from '@/types'
 
 const paymentService = new PaymentService()
 
-export const routes = new Elysia()
+export const httpServer = new Elysia()
   .use(cors())
   .post('/payments', async ({ body }) => {
-    const payment = body as PaymentRequest
-
-    const error = PaymentValidator.validatePaymentRequest(payment)
-    if (error) {
+    try {
+      const paymentInput = body as PaymentRequest
+      const payment = PaymentRequestDTO.create(paymentInput)
+      await paymentService.addPayment(payment)
+      return new Response('Payment accepted', { status: 202 })
+    } catch (error: any) {
       return new Response(error, { status: 400 })
     }
-
-    await paymentService.addPayment(payment)
-    return new Response('Payment accepted', { status: 202 })
   })
   .get('/payments-summary', async ({ query }) => {
     const { from, to } = query as { from?: string; to?: string }

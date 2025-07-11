@@ -1,8 +1,9 @@
 import { config } from '@/config'
+import type { PaymentRequest, PaymentSummary } from '@/types'
+
 import { DatabaseService } from './database-service'
 import { CacheService } from './cache-service'
 import { ProcessorService } from './processor-service'
-import type { PaymentRequest, PaymentSummary } from '@/types'
 
 export class PaymentService {
   private databaseService: DatabaseService
@@ -15,7 +16,7 @@ export class PaymentService {
     this.databaseService = new DatabaseService()
     this.cacheService = new CacheService()
     this.processorService = new ProcessorService()
-    
+
     this.startPaymentProcessor()
   }
 
@@ -39,7 +40,7 @@ export class PaymentService {
     try {
       const processor = this.processorService.selectProcessor()
       const requestedAt = new Date().toISOString()
-      
+
       const success = await this.sendPaymentToProcessor(payment, processor.url, processor.type, requestedAt)
       if (success) return
 
@@ -53,14 +54,14 @@ export class PaymentService {
   }
 
   private async sendPaymentToProcessor(
-    payment: PaymentRequest, 
+    payment: PaymentRequest,
     url: string,
     processorType: string,
     requestedAt: string
   ): Promise<boolean> {
     try {
       const response = await this.processorService.fetchPaymentRequest(payment, url, requestedAt)
-      
+
       if (!response.ok) return false
 
       await this.databaseService.persistPayment({

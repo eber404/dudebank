@@ -22,10 +22,11 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "elysia": "^1.1.0",
     "@elysiajs/cors": "^1.1.0",
+    "elysia": "^1.1.0",
+    "ioredis": "^5.4.1",
     "pg": "^8.11.5",
-    "ioredis": "^5.4.1"
+    "zod": "^4.0.5"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -1,4 +1,5 @@
 import { Pool } from 'pg'
+
 import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
 
@@ -13,7 +14,7 @@ export class DatabaseService {
   private async initDB(): Promise<void> {
     const maxRetries = 10
     const retryDelay = 2000 // 2 seconds
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.db.query('SELECT 1')
@@ -21,12 +22,12 @@ export class DatabaseService {
         return
       } catch (error) {
         console.log(`Database connection attempt ${attempt}/${maxRetries} failed`)
-        
+
         if (attempt === maxRetries) {
           console.error('Failed to connect to database after all retries:', error)
           return
         }
-        
+
         console.log(`Retrying in ${retryDelay}ms...`)
         await new Promise(resolve => setTimeout(resolve, retryDelay))
       }
@@ -43,9 +44,9 @@ export class DatabaseService {
   async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
     const { query, params } = this.buildSummaryQuery(from, to)
     const result = await this.db.query(query, params)
-    
+
     const summary = this.getEmptySummary()
-    
+
     for (const row of result.rows) {
       summary[row.processor as keyof PaymentSummary] = {
         totalRequests: parseInt(row.total_requests),
@@ -58,7 +59,7 @@ export class DatabaseService {
 
   private buildSummaryQuery(from?: string, to?: string): { query: string; params: any[] } {
     const params: any[] = []
-    
+
     if (from && to) {
       // Optimized query with BETWEEN for time range filtering
       const query = `
@@ -74,7 +75,7 @@ export class DatabaseService {
       params.push(from, to)
       return { query, params }
     }
-    
+
     if (from || to) {
       let query = `
         SELECT 
@@ -84,7 +85,7 @@ export class DatabaseService {
         FROM payments
         WHERE status = 'processed'
       `
-      
+
       if (from) {
         query += ` AND requested_at >= $${params.length + 1}`
         params.push(from)
@@ -93,7 +94,7 @@ export class DatabaseService {
         query += ` AND requested_at <= $${params.length + 1}`
         params.push(to)
       }
-      
+
       query += ' GROUP BY processor'
       return { query, params }
     }
@@ -108,7 +109,7 @@ export class DatabaseService {
       WHERE status = 'processed'
       GROUP BY processor
     `
-    
+
     return { query, params }
   }
 

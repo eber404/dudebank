@@ -1,9 +1,12 @@
 import { Elysia } from 'elysia'
+
 import { config } from '@/config'
-import { routes } from '@/routes'
+import { httpServer } from '@/http/server'
 
-new Elysia()
-  .use(routes)
-  .listen(config.server.port)
+async function main() {
+  new Elysia()
+    .use(httpServer)
+    .listen(config.server.port, () => console.log(`📞 Server is listening at http://localhost:${config.server.port}`))
+}
 
-console.log(`📞 Server is listening at http://localhost:${config.server.port}`)
+main().catch(console.log)
