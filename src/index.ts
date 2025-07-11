@@ -2,6 +2,7 @@ import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { Pool } from 'pg'
 import { Redis } from 'ioredis'
+import { config } from './config'
 
 interface PaymentRequest {
   correlationId: string
@@ -35,35 +36,21 @@ class PaymentService {
   private processing = false
 
   constructor() {
-    this.db = new Pool({
-      host: process.env.DB_HOST || 'postgres',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'rinha_dev',
-      user: process.env.DB_USER || 'dev',
-      password: process.env.DB_PASSWORD || 'dev123',
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    })
+    this.db = new Pool(config.database)
 
-    this.redis = new Redis({
-      host: process.env.REDIS_HOST || 'redis',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      maxRetriesPerRequest: 3,
-      lazyConnect: true,
-    })
+    this.redis = new Redis(config.redis)
 
     this.processors = new Map([
       ['default', {
-        url: process.env.PAYMENT_PROCESSOR_URL_DEFAULT || 'http://payment-processor-default:8080',
-        type: 'default',
+        url: config.paymentProcessors.default.url,
+        type: config.paymentProcessors.default.type,
         isHealthy: true,
         minResponseTime: 0,
         lastHealthCheck: 0
       }],
       ['fallback', {
-        url: process.env.PAYMENT_PROCESSOR_URL_FALLBACK || 'http://payment-processor-fallback:8080',
-        type: 'fallback',
+        url: config.paymentProcessors.fallback.url,
+        type: config.paymentProcessors.fallback.type,
         isHealthy: true,
         minResponseTime: 0,
         lastHealthCheck: 0
@@ -89,11 +76,11 @@ class PaymentService {
     setInterval(async () => {
       if (!this.processing && this.paymentQueue.length > 0) {
         this.processing = true
-        const batch = this.paymentQueue.splice(0, 50) // Process in batches
+        const batch = this.paymentQueue.splice(0, config.processing.batchSize)
         await this.processBatch(batch)
         this.processing = false
       }
-    }, 10)
+    }, config.processing.batchIntervalMs)
   }
 
   private async processBatch(payments: PaymentRequest[]) {
@@ -116,7 +103,7 @@ class PaymentService {
           amount: payment.amount,
           requestedAt
         }),
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(config.processing.requestTimeoutMs)
       })
 
       if (response.ok) {
@@ -142,7 +129,7 @@ class PaymentService {
               amount: payment.amount,
               requestedAt
             }),
-            signal: AbortSignal.timeout(5000)
+            signal: AbortSignal.timeout(config.processing.requestTimeoutMs)
           })
 
           if (fallbackResponse.ok) {
@@ -178,10 +165,10 @@ class PaymentService {
       for (const [, processor] of this.processors) {
         const now = Date.now()
         // Check health every 6 seconds (respecting 5-second limit)
-        if (now - processor.lastHealthCheck > 6000) {
+        if (now - processor.lastHealthCheck > config.processing.healthCheckCooldownMs) {
           try {
             const response = await fetch(`${processor.url}/payments/service-health`, {
-              signal: AbortSignal.timeout(2000)
+              signal: AbortSignal.timeout(config.processing.healthCheckTimeoutMs)
             })
             
             if (response.ok) {
@@ -197,7 +184,7 @@ class PaymentService {
           }
         }
       }
-    }, 1000)
+    }, config.processing.healthCheckIntervalMs)
   }
 
   async addPayment(payment: PaymentRequest): Promise<void> {
@@ -299,6 +286,6 @@ new Elysia()
     const summary = await paymentService.getPaymentsSummary(from, to)
     return summary
   })
-  .listen(process.env.SERVER_PORT || 8080)
+  .listen(config.server.port)
 
-console.log(`>� Server is running at http://localhost:${process.env.SERVER_PORT || 8080}`)
+console.log(`🦊 Server is running at http://localhost:${config.server.port}`)
