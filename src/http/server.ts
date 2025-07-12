@@ -24,3 +24,26 @@ export const httpServer = new Elysia()
     const summary = await paymentService.getPaymentsSummary(from, to)
     return summary
   })
+  .delete('/admin/purge', async () => {
+    try {
+      const results = await paymentService.purgeAll()
+      return {
+        message: 'Purge operation completed',
+        results,
+        timestamp: new Date().toISOString()
+      }
+    } catch (error: any) {
+      return new Response(`Purge failed: ${error.message}`, { status: 500 })
+    }
+  })
+  .get('/admin/stats', async () => {
+    try {
+      const stats = await paymentService.getSystemStats()
+      return {
+        stats,
+        timestamp: new Date().toISOString()
+      }
+    } catch (error: any) {
+      return new Response(`Failed to get stats: ${error.message}`, { status: 500 })
+    }
+  })

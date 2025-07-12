@@ -38,4 +38,33 @@ export class CacheService {
       }
     }
   }
+
+  async purgeCache(): Promise<void> {
+    try {
+      // Clear all payment-related cache keys
+      const keys = await this.redis.keys('payments:*')
+      if (keys.length > 0) {
+        await this.redis.del(...keys)
+      }
+      console.log(`Cache purged successfully - ${keys.length} keys deleted`)
+    } catch (error) {
+      console.error('Error purging cache:', error)
+      throw error
+    }
+  }
+
+  async getCacheStats(): Promise<{ keyCount: number; memoryUsage: string }> {
+    try {
+      const keys = await this.redis.keys('payments:*')
+      const info = await this.redis.info('memory')
+      const memoryMatch = info.match(/used_memory_human:(.+)/)
+      return {
+        keyCount: keys.length,
+        memoryUsage: memoryMatch ? memoryMatch[1].trim() : 'unknown'
+      }
+    } catch (error) {
+      console.error('Error getting cache stats:', error)
+      return { keyCount: 0, memoryUsage: 'unknown' }
+    }
+  }
 }

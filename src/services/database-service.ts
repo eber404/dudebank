@@ -113,6 +113,30 @@ export class DatabaseService {
     return { query, params }
   }
 
+  async purgeDatabase(): Promise<void> {
+    try {
+      // Truncate all tables used by the API
+      await this.db.query('TRUNCATE TABLE payments RESTART IDENTITY CASCADE')
+      console.log('Database purged successfully')
+    } catch (error) {
+      console.error('Error purging database:', error)
+      throw error
+    }
+  }
+
+  async getDatabaseStats(): Promise<{ tableCount: number; recordCount: number }> {
+    try {
+      const result = await this.db.query('SELECT COUNT(*) as record_count FROM payments')
+      return {
+        tableCount: 1,
+        recordCount: parseInt(result.rows[0].record_count)
+      }
+    } catch (error) {
+      console.error('Error getting database stats:', error)
+      return { tableCount: 0, recordCount: 0 }
+    }
+  }
+
   private getEmptySummary(): PaymentSummary {
     return {
       default: { totalRequests: 0, totalAmount: 0 },

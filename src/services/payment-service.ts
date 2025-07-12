@@ -99,4 +99,62 @@ export class PaymentService {
       }
     }
   }
+
+  async purgeAll(): Promise<{ database: boolean; cache: boolean; queue: boolean }> {
+    const results = {
+      database: false,
+      cache: false,
+      queue: false
+    }
+
+    try {
+      // Clear processing queue
+      this.paymentQueue = []
+      results.queue = true
+      console.log('Payment queue cleared')
+
+      // Purge database
+      await this.databaseService.purgeDatabase()
+      results.database = true
+
+      // Purge cache
+      await this.cacheService.purgeCache()
+      results.cache = true
+
+      console.log('Complete purge successful')
+      return results
+    } catch (error) {
+      console.error('Error during purge operation:', error)
+      return results
+    }
+  }
+
+  async getSystemStats(): Promise<{
+    database: { tableCount: number; recordCount: number }
+    cache: { keyCount: number; memoryUsage: string }
+    queue: { size: number; processing: boolean }
+  }> {
+    try {
+      const [dbStats, cacheStats] = await Promise.all([
+        this.databaseService.getDatabaseStats(),
+        this.cacheService.getCacheStats()
+      ])
+
+      return {
+        database: dbStats,
+        cache: cacheStats,
+        queue: {
+          size: this.paymentQueue.length,
+          processing: this.processing
+        }
+      }
+    } catch (error) {
+      console.error('Error getting system stats:', error)
+      return {
+        database: { tableCount: 0, recordCount: 0 },
+        cache: { keyCount: 0, memoryUsage: 'unknown' },
+        queue: { size: 0, processing: false }
+      }
+    }
+  }
 }
