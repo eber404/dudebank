@@ -47,3 +47,25 @@ export const httpServer = new Elysia()
       return new Response(`Failed to get stats: ${error.message}`, { status: 500 })
     }
   })
+  .get('/admin/routing-metrics', async () => {
+    try {
+      const metrics = paymentService.getRoutingMetrics()
+      return {
+        metrics,
+        timestamp: new Date().toISOString()
+      }
+    } catch (error: any) {
+      return new Response(`Failed to get routing metrics: ${error.message}`, { status: 500 })
+    }
+  })
+  .post('/admin/reset-routing-metrics', async () => {
+    try {
+      paymentService.resetRoutingMetrics()
+      return {
+        message: 'Routing metrics reset successfully',
+        timestamp: new Date().toISOString()
+      }
+    } catch (error: any) {
+      return new Response(`Failed to reset metrics: ${error.message}`, { status: 500 })
+    }
+  })

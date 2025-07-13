@@ -3,19 +3,19 @@ import type { PaymentRequest, PaymentSummary } from '@/types'
 
 import { DatabaseService } from './database-service'
 import { CacheService } from './cache-service'
-import { ProcessorService } from './processor-service'
+import { PaymentRouter } from './payment-router'
 
 export class PaymentService {
   private databaseService: DatabaseService
   private cacheService: CacheService
-  private processorService: ProcessorService
+  private paymentRouter: PaymentRouter
   private paymentQueue: PaymentRequest[] = []
   private processing = false
 
   constructor() {
     this.databaseService = new DatabaseService()
     this.cacheService = new CacheService()
-    this.processorService = new ProcessorService()
+    this.paymentRouter = new PaymentRouter()
 
     this.startPaymentProcessor()
   }
@@ -38,45 +38,33 @@ export class PaymentService {
 
   private async processPayment(payment: PaymentRequest): Promise<void> {
     try {
-      const processor = this.processorService.selectProcessor()
+      const response = await this.paymentRouter.processPaymentWithRetry(payment)
       const requestedAt = new Date().toISOString()
+      
+      if (response.ok) {
+        const processor = this.paymentRouter.selectOptimalProcessor()
+        
+        await this.databaseService.persistPayment({
+          correlationId: payment.correlationId,
+          amount: payment.amount,
+          processor: processor.type,
+          requestedAt,
+          status: 'processed'
+        })
 
-      const success = await this.sendPaymentToProcessor(payment, processor.url, processor.type, requestedAt)
-      if (success) return
-
-      if (processor.type !== 'default') return
-
-      const fallbackProcessor = this.processorService.getProcessor('fallback')!
-      await this.sendPaymentToProcessor(payment, fallbackProcessor.url, fallbackProcessor.type, requestedAt)
+        await this.cacheService.updateCache(processor.type, payment.amount)
+      }
     } catch (error) {
       console.error('Error processing payment:', error)
     }
   }
 
-  private async sendPaymentToProcessor(
-    payment: PaymentRequest,
-    url: string,
-    processorType: string,
-    requestedAt: string
-  ): Promise<boolean> {
-    try {
-      const response = await this.processorService.fetchPaymentRequest(payment, url, requestedAt)
+  getRoutingMetrics(): any {
+    return this.paymentRouter.getRoutingMetrics()
+  }
 
-      if (!response.ok) return false
-
-      await this.databaseService.persistPayment({
-        correlationId: payment.correlationId,
-        amount: payment.amount,
-        processor: processorType,
-        requestedAt,
-        status: 'processed'
-      })
-
-      await this.cacheService.updateCache(processorType, payment.amount)
-      return true
-    } catch (error) {
-      return false
-    }
+  resetRoutingMetrics(): void {
+    this.paymentRouter.resetMetrics()
   }
 
   async addPayment(payment: PaymentRequest): Promise<void> {
