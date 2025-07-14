@@ -35,10 +35,8 @@ export class PaymentRouter {
   private startHealthCheck(): void {
     this.healthCheckInterval = setInterval(async () => {
       try {
-        // Try to become leader or renew leadership
         this.isLeader = await this.cacheService.manageHealthCheckLock(this.isLeader)
 
-        // Only perform health checks if this instance is the leader
         if (this.isLeader) {
           await this.performHealthChecks()
         }

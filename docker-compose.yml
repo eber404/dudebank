@@ -26,8 +26,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.75"
-          memory: "125MB"
+          cpus: "0.6"
+          memory: "120MB"
 
   api2:
     <<: *api-service
@@ -51,7 +51,7 @@ services:
       resources:
         limits:
           cpus: "0.05"
-          memory: "10MB"
+          memory: "15MB"
 
   postgres:
     image: postgres:alpine
@@ -63,8 +63,6 @@ services:
       - POSTGRES_PASSWORD=dev123
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      # - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
-      # - postgres_data:/var/lib/postgresql/data
     networks:
       - backend
     ports:
@@ -79,11 +77,11 @@ services:
       resources:
         limits:
           cpus: "0.05"
-          memory: "80MB"
+          memory: "70MB"
 
   redis:
     image: redis:alpine
-    command: redis-server --maxmemory 70mb --maxmemory-policy allkeys-lru --tcp-keepalive 60
+    command: redis-server --maxmemory 50mb --maxmemory-policy allkeys-lru --tcp-keepalive 60
     env_file:
       - .env
     networks:
@@ -94,7 +92,7 @@ services:
       resources:
         limits:
           cpus: "0.05"
-          memory: "70MB"
+          memory: "50MB"
 
 networks:
   backend:
