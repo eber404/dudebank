@@ -53,18 +53,4 @@ export class CacheService {
     }
   }
 
-  async getCacheStats(): Promise<{ keyCount: number; memoryUsage: string }> {
-    try {
-      const keys = await this.redis.keys('payments:*')
-      const info = await this.redis.info('memory')
-      const memoryMatch = info.match(/used_memory_human:(.+)/)
-      return {
-        keyCount: keys.length,
-        memoryUsage: memoryMatch && memoryMatch[1] ? memoryMatch[1].trim() : 'unknown'
-      }
-    } catch (error) {
-      console.error('Error getting cache stats:', error)
-      return { keyCount: 0, memoryUsage: 'unknown' }
-    }
-  }
 }

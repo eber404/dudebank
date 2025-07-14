@@ -24,9 +24,6 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 - `GET /payments-summary` - Resumo de pagamentos
 
 ### Administração
-- `GET /admin/stats` - Estatísticas do sistema
-- `GET /admin/routing-metrics` - Métricas de roteamento
-- `POST /admin/reset-routing-metrics` - Reset métricas
 - `DELETE /admin/purge` - Limpar banco e cache
 
 ## 🛠️ Como Executar
@@ -42,14 +39,4 @@ bun install
 
 # Executar aplicação com Docker
 bun run docker:start:clean
-```
-## 🛡️ Monitoramento
-
-### Health Checks
-```bash
-# Status dos processadores
-curl http://localhost:9999/admin/stats
-
-# Métricas de roteamento
-curl http://localhost:9999/admin/routing-metrics
 ```

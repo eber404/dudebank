@@ -11,13 +11,6 @@ interface LatencyMetrics {
   consecutiveFailures: number
 }
 
-interface RoutingMetrics {
-  p95Latency: number
-  successRate: number
-  totalCost: number
-  paymentsPerSecond: number
-  avgLatency: number
-}
 
 export class PaymentRouter {
   private processors: Map<string, PaymentProcessor>
@@ -30,10 +23,7 @@ export class PaymentRouter {
   private readonly CIRCUIT_RECOVERY_TIME = 15000
   private readonly LATENCY_MULTIPLIER_THRESHOLD = 2
   private readonly COST_BENEFIT_THRESHOLD = 1.5
-  private readonly DEFAULT_FEE = 0.05
-  private readonly FALLBACK_FEE = 0.15
   private readonly healthCheckInterval: NodeJS.Timeout
-  private readonly startupTime = Date.now()
 
   constructor() {
     this.processors = new Map()
@@ -124,12 +114,9 @@ export class PaymentRouter {
     if (fallbackLatencies.length > 0) {
       const fallbackAvgLatency = fallbackLatencies.reduce((a, b) => a + b, 0) / fallbackLatencies.length
       
-      // Calculate cost per ms saved
+      // Only switch if significant latency improvement
       const latencySaved = defaultAvgLatency - fallbackAvgLatency
-      const costIncrease = this.FALLBACK_FEE - this.DEFAULT_FEE
-      
-      // Only switch if significant latency improvement justifies cost
-      if (latencySaved > 0 && latencySaved > costIncrease * 1000 * this.COST_BENEFIT_THRESHOLD) {
+      if (latencySaved > 50) {
         return fallbackProcessor
       }
       
@@ -246,22 +233,6 @@ export class PaymentRouter {
     }
   }
 
-  private calculateAverageLatency(processorType: string): number {
-    const latencies = this.metrics.get(processorType)?.latencies
-    if (!latencies || latencies.length === 0) return 0
-    return latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length
-  }
-
-  private calculateP95Latency(processorType: string): number {
-    const latencies = this.metrics.get(processorType)?.latencies
-    if (!latencies || latencies.length === 0) return 0
-
-    if (latencies.length === 1) return latencies[0] ?? 0
-
-    const sorted = latencies.slice().sort((a, b) => a - b)
-    const index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1)
-    return sorted[index] ?? 0
-  }
 
 
   private calculateBackoffDelay(attempt: number): number {
@@ -272,25 +243,6 @@ export class PaymentRouter {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
-  getRoutingMetrics(): Record<string, RoutingMetrics> {
-    const result: Record<string, RoutingMetrics> = {}
-
-    for (const [processorType, metrics] of this.metrics) {
-      const fee = processorType === 'default' ? this.DEFAULT_FEE : this.FALLBACK_FEE
-      const totalPayments = metrics.successCount
-      const totalCost = totalPayments * fee
-
-      result[processorType] = {
-        p95Latency: this.calculateP95Latency(processorType),
-        successRate: metrics.totalCount > 0 ? metrics.successCount / metrics.totalCount : 0,
-        totalCost,
-        paymentsPerSecond: totalPayments / Math.max(1, (Date.now() - this.startupTime) / 1000),
-        avgLatency: this.calculateAverageLatency(processorType)
-      }
-    }
-
-    return result
-  }
 
 
   private startHealthChecker(): NodeJS.Timeout {

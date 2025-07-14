@@ -124,18 +124,6 @@ export class DatabaseService {
     }
   }
 
-  async getDatabaseStats(): Promise<{ tableCount: number; recordCount: number }> {
-    try {
-      const result = await this.db.query('SELECT COUNT(*) as record_count FROM payments')
-      return {
-        tableCount: 1,
-        recordCount: parseInt(result.rows[0].record_count)
-      }
-    } catch (error) {
-      console.error('Error getting database stats:', error)
-      return { tableCount: 0, recordCount: 0 }
-    }
-  }
 
   private getEmptySummary(): PaymentSummary {
     return {

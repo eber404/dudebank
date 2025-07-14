@@ -63,13 +63,6 @@ export class PaymentService {
     }
   }
 
-  getRoutingMetrics(): any {
-    return this.paymentRouter.getRoutingMetrics()
-  }
-
-  resetRoutingMetrics(): void {
-    this.paymentRouter.resetMetrics()
-  }
 
   async addPayment(payment: PaymentRequest): Promise<void> {
     this.paymentQueue.push(payment)
@@ -121,32 +114,4 @@ export class PaymentService {
     }
   }
 
-  async getSystemStats(): Promise<{
-    database: { tableCount: number; recordCount: number }
-    cache: { keyCount: number; memoryUsage: string }
-    queue: { size: number; processing: boolean }
-  }> {
-    try {
-      const [dbStats, cacheStats] = await Promise.all([
-        this.databaseService.getDatabaseStats(),
-        this.cacheService.getCacheStats()
-      ])
-
-      return {
-        database: dbStats,
-        cache: cacheStats,
-        queue: {
-          size: this.paymentQueue.length,
-          processing: this.processing
-        }
-      }
-    } catch (error) {
-      console.error('Error getting system stats:', error)
-      return {
-        database: { tableCount: 0, recordCount: 0 },
-        cache: { keyCount: 0, memoryUsage: 'unknown' },
-        queue: { size: 0, processing: false }
-      }
-    }
-  }
 }
