@@ -38,16 +38,17 @@ export class PaymentService {
 
   private async processPayment(payment: PaymentRequest): Promise<void> {
     try {
-      const response = await this.paymentRouter.processPaymentWithRetry(payment)
+      const result = await this.paymentRouter.processPaymentWithRetry(payment)
       const requestedAt = new Date().toISOString()
 
-      if (!response.ok) return
+      if (!result.response.ok) return
       
-      const processor = this.paymentRouter.selectOptimalProcessor()
+      const processorType = result.processor.type
+      
       const processedPayment = {
         correlationId: payment.correlationId,
         amount: payment.amount,
-        processor: processor.type,
+        processor: processorType,
         requestedAt,
         status: 'processed' as const
       }
@@ -56,7 +57,7 @@ export class PaymentService {
       await this.databaseService.executeAtomicPaymentPersistence(
         processedPayment,
         async () => {
-          await this.cacheService.updateCache(processor.type, payment.amount)
+          await this.cacheService.updateCache(processorType, payment.amount)
         }
       )
     } catch (error) {

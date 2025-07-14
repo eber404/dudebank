@@ -12,10 +12,8 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 DROP INDEX IF EXISTS idx_requested_at_processor;
-
 CREATE INDEX IF NOT EXISTS idx_requested_at_processor ON payments(requested_at, processor);
 
-DROP INDEX IF EXISTS idx_status_requested_at_processor;
-
-CREATE INDEX IF NOT EXISTS idx_status_requested_at_processor ON payments(status, requested_at, processor)
-WHERE status = 'processed';
+DROP INDEX IF EXISTS idx_payments_summary_covering;
+CREATE INDEX IF NOT EXISTS idx_payments_summary_covering ON payments(status, processor) 
+INCLUDE (amount, requested_at) WHERE status = 'processed';

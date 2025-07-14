@@ -9,8 +9,10 @@ export const config = {
     user: process.env.DB_USER || 'dev',
     password: process.env.DB_PASSWORD || 'dev123',
     max: 20,
+    min: 2,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
+    acquireTimeoutMillis: 5000,
   },
   redis: {
     host: process.env.REDIS_HOST || 'redis',
@@ -29,10 +31,20 @@ export const config = {
     },
   },
   processing: {
-    batchSize: 100,
-    batchIntervalMs: 10,
+    batchSize: 50,
+    batchIntervalMs: 5,
     requestTimeoutMs: 1250,
     healthCheckIntervalMs: 5000,
     healthCheckTimeoutMs: 1000,
+  },
+  paymentRouter: {
+    healthCheckIntervalMs: 5000,
+    requestTimeoutMs: 1250,
+    maxRetries: 2,
+    processorScoreWeights: {
+      fee: 0.6,
+      responseTime: 0.3,
+      availability: 0.1
+    }
   },
 }

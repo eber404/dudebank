@@ -1,7 +1,7 @@
 import { Redis } from 'ioredis'
 
 import { config } from '@/config'
-import type { PaymentSummary } from '@/types'
+import type { PaymentSummary, ProcessorHealth } from '@/types'
 
 export class CacheService {
   private redis: Redis
@@ -51,6 +51,24 @@ export class CacheService {
       console.error('Error purging cache:', error)
       throw error
     }
+  }
+
+  // PaymentRouter cache methods
+  async setOptimalProcessor(processorType: string): Promise<void> {
+    await this.redis.setex('processor:optimal', 10, processorType)
+  }
+
+  async getOptimalProcessor(): Promise<string | null> {
+    return await this.redis.get('processor:optimal')
+  }
+
+  async setProcessorHealth(processorType: string, health: ProcessorHealth): Promise<void> {
+    await this.redis.setex(`processor:${processorType}:health`, 10, JSON.stringify(health))
+  }
+
+  async getProcessorHealth(processorType: string): Promise<ProcessorHealth | null> {
+    const data = await this.redis.get(`processor:${processorType}:health`)
+    return data ? JSON.parse(data) : null
   }
 
 }

@@ -40,3 +40,25 @@ export interface HealthCheckResponse {
   failing: boolean
   minResponseTime: number
 }
+
+export interface ProcessorHealth {
+  failing: boolean
+  minResponseTime: number
+  lastChecked: number
+}
+
+export interface ProcessorScore {
+  processor: PaymentProcessor
+  score: number
+  reasoning: string
+}
+
+export interface PaymentProcessorRequest {
+  correlationId: string
+  amount: number
+  requestedAt: string
+}
+
+export interface PaymentProcessorResponse {
+  message: string
+}
