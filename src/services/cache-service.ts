@@ -66,5 +66,21 @@ export class CacheService {
     await this.redis.setex(`processor:${processorType}:health`, 10, JSON.stringify(health))
   }
 
+  async getProcessorHealth(processorType: string): Promise<ProcessorHealth | null> {
+    const data = await this.redis.get(`processor:${processorType}:health`)
+    return data ? JSON.parse(data) : null
+  }
 
+  // Leader election for health checks
+  async manageHealthCheckLock(tryAcquire: boolean = false): Promise<boolean> {
+    const lockKey = 'health-check-leader'
+    const lockValue = process.pid.toString()
+
+    const args: (string | number)[] = [lockKey, lockValue, 'PX', 7000]
+    if (tryAcquire) {
+      args.push('NX')
+    }
+    const result = await (this.redis as any).set(...args)
+    return result === 'OK'
+  }
 }

@@ -6,9 +6,6 @@ export interface PaymentRequest {
 export interface PaymentProcessor {
   url: string
   type: 'default' | 'fallback'
-  isHealthy: boolean
-  minResponseTime: number
-  lastHealthCheck: number
 }
 
 export interface PaymentSummary {

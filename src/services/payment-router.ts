@@ -13,26 +13,19 @@ export class PaymentRouter {
   private processors: PaymentProcessor[]
   private cacheService: CacheService
   private healthCheckInterval: NodeJS.Timeout | null = null
-  private lastHealthCheck: Map<string, number>
+  private isLeader: boolean = false
 
   constructor() {
     this.cacheService = new CacheService()
-    this.lastHealthCheck = new Map()
 
     this.processors = [
       {
         url: config.paymentProcessors.default.url,
-        type: config.paymentProcessors.default.type,
-        isHealthy: false,
-        minResponseTime: 0,
-        lastHealthCheck: 0
+        type: config.paymentProcessors.default.type
       },
       {
         url: config.paymentProcessors.fallback.url,
-        type: config.paymentProcessors.fallback.type,
-        isHealthy: false,
-        minResponseTime: 0,
-        lastHealthCheck: 0
+        type: config.paymentProcessors.fallback.type
       }
     ]
 
@@ -42,9 +35,16 @@ export class PaymentRouter {
   private startHealthCheck(): void {
     this.healthCheckInterval = setInterval(async () => {
       try {
-        await this.performHealthChecks()
+        // Try to become leader or renew leadership
+        this.isLeader = await this.cacheService.manageHealthCheckLock(this.isLeader)
+
+        // Only perform health checks if this instance is the leader
+        if (this.isLeader) {
+          await this.performHealthChecks()
+        }
       } catch (error) {
         console.error('Health check failed:', error)
+        this.isLeader = false
       }
     }, config.paymentRouter.healthCheckIntervalMs)
   }
@@ -53,22 +53,13 @@ export class PaymentRouter {
     const healthCheckPromises = this.processors.map(processor => this.checkProcessorHealth(processor))
     await Promise.all(healthCheckPromises)
 
-    const optimalProcessor = this.selectOptimalProcessor()
+    const optimalProcessor = await this.selectOptimalProcessor()
     if (optimalProcessor) {
       await this.cacheService.setOptimalProcessor(optimalProcessor.type)
     }
   }
 
   private async checkProcessorHealth(processor: PaymentProcessor): Promise<void> {
-    const now = Date.now()
-    const lastCheck = this.lastHealthCheck.get(processor.type) || 0
-
-    if (now - lastCheck < config.paymentRouter.healthCheckIntervalMs) {
-      return
-    }
-
-    this.lastHealthCheck.set(processor.type, now)
-
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), config.paymentRouter.healthCheckTimeoutMs)
@@ -86,39 +77,37 @@ export class PaymentRouter {
 
       const health = await response.json() as HealthCheckResponse
 
-      processor.isHealthy = !health.failing
-      processor.minResponseTime = health.minResponseTime
-      processor.lastHealthCheck = now
-
       const processorHealth: ProcessorHealth = {
         failing: health.failing,
         minResponseTime: health.minResponseTime,
-        lastChecked: now
+        lastChecked: Date.now()
       }
 
       await this.cacheService.setProcessorHealth(processor.type, processorHealth)
     } catch (error) {
-      processor.isHealthy = false
-      processor.minResponseTime = 9999
-      processor.lastHealthCheck = now
+      const failedHealth: ProcessorHealth = {
+        failing: true,
+        minResponseTime: Infinity,
+        lastChecked: Date.now()
+      }
 
+      await this.cacheService.setProcessorHealth(processor.type, failedHealth)
       console.log(`Health check failed for ${processor.type}:`, error)
     }
   }
 
-  private calculateProcessorScore(processor: PaymentProcessor): ProcessorScore {
+  private calculateProcessorScore(processor: PaymentProcessor, health: ProcessorHealth): ProcessorScore {
     const weights = config.paymentRouter.processorScoreWeights
 
-    if (!processor.isHealthy) {
+    if (health.failing) {
       return { processor, score: 0, reasoning: 'Unhealthy' }
     }
 
     const feeScore = processor.type === 'default' ? 100 : 70
-    const responseScore = Math.max(0, 100 - (processor.minResponseTime / 10))
-    const availabilityScore = processor.isHealthy ? 100 : 0
+    const responseScore = Math.max(0, 100 - (health.minResponseTime / 10))
+    const availabilityScore = !health.failing ? 100 : 0
 
     const finalScore = (feeScore * weights.fee) + (responseScore * weights.responseTime) + (availabilityScore * weights.availability)
-
 
     return {
       processor,
@@ -127,8 +116,14 @@ export class PaymentRouter {
     }
   }
 
-  selectOptimalProcessor(): PaymentProcessor | null {
-    const scores = this.processors.map(processor => this.calculateProcessorScore(processor))
+  async selectOptimalProcessor(): Promise<PaymentProcessor | null> {
+    const scoresPromises = this.processors.map(async processor => {
+      const health = await this.cacheService.getProcessorHealth(processor.type)
+      if (!health) return null
+      return this.calculateProcessorScore(processor, health)
+    })
+
+    const scores = (await Promise.all(scoresPromises)).filter(score => score !== null) as ProcessorScore[]
     const validScores = scores.filter(score => score.score > 0)
 
     if (validScores.length === 0) {
@@ -147,12 +142,15 @@ export class PaymentRouter {
 
     if (cachedType) {
       const processor = this.processors.find(p => p.type === cachedType)
-      if (processor && processor.isHealthy) {
-        return processor
+      if (processor) {
+        const health = await this.cacheService.getProcessorHealth(processor.type)
+        if (health && !health.failing) {
+          return processor
+        }
       }
     }
 
-    const optimal = this.selectOptimalProcessor()
+    const optimal = await this.selectOptimalProcessor()
     if (optimal) {
       return optimal
     }
