@@ -17,8 +17,6 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@elysiajs/cors": "^1.1.0",
-    "elysia": "^1.1.0",
     "ioredis": "^5.4.1",
     "pg": "^8.11.5",
     "zod": "^4.0.5"
