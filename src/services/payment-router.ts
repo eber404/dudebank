@@ -22,13 +22,16 @@ interface RoutingMetrics {
 export class PaymentRouter {
   private processors: Map<string, PaymentProcessor>
   private metrics: Map<string, LatencyMetrics>
-  private readonly LATENCY_WINDOW_SIZE = 10
+  private readonly LATENCY_WINDOW_SIZE = 20
   private readonly DEFAULT_THRESHOLD = 100
   private readonly FALLBACK_THRESHOLD = 150
   private readonly HYSTERESIS_THRESHOLD = 80
-  private readonly CIRCUIT_BREAKER_TIMEOUT = 2000
-  private readonly CIRCUIT_RECOVERY_TIME = 30000
-  private readonly LATENCY_MULTIPLIER_THRESHOLD = 3
+  private readonly CIRCUIT_BREAKER_TIMEOUT = 5000
+  private readonly CIRCUIT_RECOVERY_TIME = 15000
+  private readonly LATENCY_MULTIPLIER_THRESHOLD = 2
+  private readonly COST_BENEFIT_THRESHOLD = 1.5
+  private readonly DEFAULT_FEE = 0.05
+  private readonly FALLBACK_FEE = 0.15
   private readonly healthCheckInterval: NodeJS.Timeout
   private readonly startupTime = Date.now()
 
@@ -68,50 +71,89 @@ export class PaymentRouter {
 
   selectOptimalProcessor(): PaymentProcessor {
     const defaultProcessor = this.processors.get('default')!
+    const fallbackProcessor = this.processors.get('fallback')!
     const defaultMetrics = this.metrics.get('default')!
+    const fallbackMetrics = this.metrics.get('fallback')!
 
+    // Circuit breaker check with adaptive recovery
     if (defaultMetrics.isCircuitOpen) {
       const timeSinceOpen = Date.now() - defaultMetrics.circuitOpenTime
       if (timeSinceOpen <= this.CIRCUIT_RECOVERY_TIME) {
-        return this.processors.get('fallback')!
+        return fallbackProcessor
       }
-      defaultMetrics.isCircuitOpen = false
+      // Try to recover gradually
+      if (Math.random() > 0.7) {
+        defaultMetrics.isCircuitOpen = false
+      } else {
+        return fallbackProcessor
+      }
     }
 
+    // Health check priority
     if (!defaultProcessor.isHealthy) {
-      return this.processors.get('fallback')!
+      return fallbackProcessor
     }
 
-    const latencies = defaultMetrics.latencies
-    if (latencies.length === 0) {
+    // If fallback is also unhealthy, prefer default (lower fee)
+    if (!fallbackProcessor.isHealthy) {
       return defaultProcessor
     }
 
-    const sum = latencies.reduce((a, b) => a + b, 0)
-    const defaultAvgLatency = sum / latencies.length
+    // Use minResponseTime for smarter thresholds
+    const dynamicThreshold = Math.max(
+      this.DEFAULT_THRESHOLD,
+      defaultProcessor.minResponseTime * 1.2
+    )
 
-    if (defaultAvgLatency <= this.DEFAULT_THRESHOLD) {
+    const defaultLatencies = defaultMetrics.latencies
+    const fallbackLatencies = fallbackMetrics.latencies
+
+    // No data yet, prefer default (lower fee)
+    if (defaultLatencies.length === 0) {
       return defaultProcessor
     }
 
-    if (defaultAvgLatency > this.FALLBACK_THRESHOLD) {
-      return this.processors.get('fallback')!
+    const defaultAvgLatency = defaultLatencies.reduce((a, b) => a + b, 0) / defaultLatencies.length
+    
+    // If default is performing well, use it
+    if (defaultAvgLatency <= dynamicThreshold && defaultMetrics.consecutiveFailures === 0) {
+      return defaultProcessor
     }
 
-    const fallbackLatencies = this.metrics.get('fallback')!.latencies
+    // Cost-benefit analysis
     if (fallbackLatencies.length > 0) {
-      const fallbackSum = fallbackLatencies.reduce((a, b) => a + b, 0)
-      const fallbackAvgLatency = fallbackSum / fallbackLatencies.length
+      const fallbackAvgLatency = fallbackLatencies.reduce((a, b) => a + b, 0) / fallbackLatencies.length
+      
+      // Calculate cost per ms saved
+      const latencySaved = defaultAvgLatency - fallbackAvgLatency
+      const costIncrease = this.FALLBACK_FEE - this.DEFAULT_FEE
+      
+      // Only switch if significant latency improvement justifies cost
+      if (latencySaved > 0 && latencySaved > costIncrease * 1000 * this.COST_BENEFIT_THRESHOLD) {
+        return fallbackProcessor
+      }
+      
+      // Or if default is significantly worse
       if (defaultAvgLatency > this.LATENCY_MULTIPLIER_THRESHOLD * fallbackAvgLatency) {
-        return this.processors.get('fallback')!
+        return fallbackProcessor
       }
     }
 
-    if (defaultAvgLatency < this.HYSTERESIS_THRESHOLD && defaultMetrics.consecutiveFailures === 0) {
-      return defaultProcessor
+    // Consider minResponseTime differences
+    if (fallbackProcessor.minResponseTime > 0 && defaultProcessor.minResponseTime > 0) {
+      const minTimeRatio = defaultProcessor.minResponseTime / fallbackProcessor.minResponseTime
+      if (minTimeRatio > 2.0) {
+        return fallbackProcessor
+      }
     }
 
-    return this.processors.get('fallback')!
+    // Extreme latency fallback
+    if (defaultAvgLatency > this.FALLBACK_THRESHOLD) {
+      return fallbackProcessor
+    }
+
+    // Default preference (lower fee)
+    return defaultProcessor
   }
 
   async processPaymentWithRetry(payment: PaymentRequest): Promise<Response> {
@@ -169,6 +211,12 @@ export class PaymentRouter {
       return response
     } catch (error) {
       clearTimeout(timeoutId)
+      
+      // Better error handling for AbortError
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${this.CIRCUIT_BREAKER_TIMEOUT}ms to ${processor.type} processor`)
+      }
+      
       throw error
     }
   }
@@ -190,7 +238,8 @@ export class PaymentRouter {
       metrics.consecutiveFailures = 0
     } else {
       metrics.consecutiveFailures++
-      if (metrics.consecutiveFailures >= 3) {
+      // More aggressive circuit breaker for faster adaptation
+      if (metrics.consecutiveFailures >= 2) {
         metrics.isCircuitOpen = true
         metrics.circuitOpenTime = Date.now()
       }
@@ -227,7 +276,7 @@ export class PaymentRouter {
     const result: Record<string, RoutingMetrics> = {}
 
     for (const [processorType, metrics] of this.metrics) {
-      const fee = processorType === 'default' ? 0.05 : 0.15
+      const fee = processorType === 'default' ? this.DEFAULT_FEE : this.FALLBACK_FEE
       const totalPayments = metrics.successCount
       const totalCost = totalPayments * fee
 
@@ -250,12 +299,12 @@ export class PaymentRouter {
         this.checkProcessorHealth(processor)
       )
       await Promise.allSettled(promises)
-    }, 5000)
+    }, 5100)
   }
 
   private async checkProcessorHealth(processor: PaymentProcessor): Promise<void> {
     const now = Date.now()
-    if (now - processor.lastHealthCheck <= 4500) return
+    if (now - processor.lastHealthCheck <= 5000) return
 
     processor.lastHealthCheck = now
 

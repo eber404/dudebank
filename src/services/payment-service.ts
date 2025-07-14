@@ -22,7 +22,7 @@ export class PaymentService {
 
   private startPaymentProcessor(): void {
     setInterval(async () => {
-      if (this.processing || this.paymentQueue.length === 0) return
+      if (this.processing || !this.paymentQueue.length) return
 
       this.processing = true
       const batch = this.paymentQueue.splice(0, config.processing.batchSize)
