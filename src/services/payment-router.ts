@@ -221,7 +221,13 @@ export class PaymentRouter {
     }
   }
 
-  private async raceProcessors(payment: PaymentRequest): Promise<{ response: Response; processor: PaymentProcessor }> {
+  private async raceProcessors(payment: PaymentRequest, attempt: number = 1): Promise<{ response: Response; processor: PaymentProcessor }> {
+    const maxAttempts = config.paymentRouter.raceProcessorsMaxAttempts
+
+    if (attempt > maxAttempts) {
+      throw new Error(`All processors failed after ${maxAttempts} attempts`)
+    }
+
     const controllers = this.processors.map(() => new AbortController())
 
     const promises = this.processors.map((processor, index) =>
@@ -239,7 +245,9 @@ export class PaymentRouter {
       return result
     } catch (error) {
       controllers.forEach(controller => controller.abort())
-      throw new Error('All processors failed')
+      console.log(`Race attempt ${attempt} failed, retrying...`, error)
+
+      return await this.raceProcessors(payment, attempt + 1)
     }
   }
 

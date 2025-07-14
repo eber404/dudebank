@@ -42,6 +42,7 @@ export const config = {
       fee: 0.6,
       responseTime: 0.3,
       availability: 0.1
-    }
+    },
+    raceProcessorsMaxAttempts: 50,
   },
 }
