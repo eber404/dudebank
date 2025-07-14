@@ -1,8 +1,6 @@
 services:
   api1: &api-service
-    build:
-      context: .
-      target: ${BUILD_TARGET:-development}
+    image: eber404/dudebank:latest
     env_file:
       - .env
     environment:
