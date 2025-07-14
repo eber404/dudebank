@@ -207,11 +207,11 @@ export class PaymentRouter {
     const latencies = this.metrics.get(processorType)?.latencies
     if (!latencies || latencies.length === 0) return 0
 
-    if (latencies.length === 1) return latencies[0]
-    
+    if (latencies.length === 1) return latencies[0] ?? 0
+
     const sorted = latencies.slice().sort((a, b) => a - b)
     const index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1)
-    return sorted[index]
+    return sorted[index] ?? 0
   }
 
 
@@ -246,7 +246,7 @@ export class PaymentRouter {
 
   private startHealthChecker(): NodeJS.Timeout {
     return setInterval(async () => {
-      const promises = Array.from(this.processors.values()).map(processor => 
+      const promises = Array.from(this.processors.values()).map(processor =>
         this.checkProcessorHealth(processor)
       )
       await Promise.allSettled(promises)

@@ -60,7 +60,7 @@ export class CacheService {
       const memoryMatch = info.match(/used_memory_human:(.+)/)
       return {
         keyCount: keys.length,
-        memoryUsage: memoryMatch ? memoryMatch[1].trim() : 'unknown'
+        memoryUsage: memoryMatch && memoryMatch[1] ? memoryMatch[1].trim() : 'unknown'
       }
     } catch (error) {
       console.error('Error getting cache stats:', error)

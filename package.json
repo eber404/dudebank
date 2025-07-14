@@ -11,7 +11,8 @@
     "docker:up": "docker compose -f docker-compose.yml up",
     "docker:down": "docker compose -f docker-compose.yml down",
     "docker:clean": "./scripts/docker-clean-start.sh",
-    "load-test": "k6 run rinha-test/rinha.js"
+    "load-test": "k6 run rinha-test/rinha.js",
+    "type-check": "bunx tsc --noEmit"
   },
   "peerDependencies": {
     "typescript": "^5"

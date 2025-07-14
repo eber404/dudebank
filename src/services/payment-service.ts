@@ -40,20 +40,24 @@ export class PaymentService {
     try {
       const response = await this.paymentRouter.processPaymentWithRetry(payment)
       const requestedAt = new Date().toISOString()
-      
-      if (response.ok) {
-        const processor = this.paymentRouter.selectOptimalProcessor()
-        
-        await this.databaseService.persistPayment({
-          correlationId: payment.correlationId,
-          amount: payment.amount,
-          processor: processor.type,
-          requestedAt,
-          status: 'processed'
-        })
 
-        await this.cacheService.updateCache(processor.type, payment.amount)
-      }
+      if (!response.ok) return
+      const processor = this.paymentRouter.selectOptimalProcessor()
+
+      const dbPromise = this.databaseService.persistPayment({
+        correlationId: payment.correlationId,
+        amount: payment.amount,
+        processor: processor.type,
+        requestedAt,
+        status: 'processed'
+      })
+
+      const cachePromise = this.cacheService.updateCache(processor.type, payment.amount)
+
+      await Promise.allSettled([
+        dbPromise,
+        cachePromise
+      ])
     } catch (error) {
       console.error('Error processing payment:', error)
     }
