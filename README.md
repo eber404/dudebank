@@ -1,15 +1,55 @@
-# dude-bank
+# DudeBank - Payment Processing System
 
-To install dependencies:
+Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 2025** usando Bun, TypeScript e arquitetura de microserviços.
 
+## 🏗️ Arquitetura
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Nginx     │───▶│   API 1     │───▶│ PostgreSQL  │
+│Load Balancer│    │   API 2     │    │  Database   │
+└─────────────┘    └─────────────┘    └─────────────┘
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │    Redis    │
+                   │    Cache    │
+                   └─────────────┘
+```
+
+## 📋 Endpoints
+
+### Pagamentos
+- `POST /payments` - Processar pagamento
+- `GET /payments-summary` - Resumo de pagamentos
+
+### Administração
+- `GET /admin/stats` - Estatísticas do sistema
+- `GET /admin/routing-metrics` - Métricas de roteamento
+- `POST /admin/reset-routing-metrics` - Reset métricas
+- `DELETE /admin/purge` - Limpar banco e cache
+
+## 🛠️ Como Executar
+
+### Pré-requisitos
+- Bun >= 1.0
+- Docker & Docker Compose
+
+### Desenvolvimento
 ```bash
+# Instalar dependências
 bun install
+
+# Executar aplicação com Docker
+bun run docker:start:clean
 ```
+## 🛡️ Monitoramento
 
-To run:
-
+### Health Checks
 ```bash
-bun run index.ts
-```
+# Status dos processadores
+curl http://localhost:9999/admin/stats
 
-This project was created using `bun init` in bun v1.2.18. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+# Métricas de roteamento
+curl http://localhost:9999/admin/routing-metrics
+```
