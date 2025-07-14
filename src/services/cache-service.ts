@@ -66,9 +66,5 @@ export class CacheService {
     await this.redis.setex(`processor:${processorType}:health`, 10, JSON.stringify(health))
   }
 
-  async getProcessorHealth(processorType: string): Promise<ProcessorHealth | null> {
-    const data = await this.redis.get(`processor:${processorType}:health`)
-    return data ? JSON.parse(data) : null
-  }
 
 }

@@ -30,11 +30,6 @@ export interface ProcessedPayment {
   status: string
 }
 
-export interface DatabaseRow {
-  processor: string
-  total_requests: string
-  total_amount: string
-}
 
 export interface HealthCheckResponse {
   failing: boolean
@@ -59,6 +54,3 @@ export interface PaymentProcessorRequest {
   requestedAt: string
 }
 
-export interface PaymentProcessorResponse {
-  message: string
-}

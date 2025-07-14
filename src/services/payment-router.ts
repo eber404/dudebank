@@ -5,7 +5,6 @@ import type {
   ProcessorHealth,
   ProcessorScore,
   PaymentProcessorRequest,
-  PaymentProcessorResponse,
   HealthCheckResponse
 } from '@/types'
 import { CacheService } from './cache-service'
@@ -120,7 +119,6 @@ export class PaymentRouter {
 
     const finalScore = (feeScore * weights.fee) + (responseScore * weights.responseTime) + (availabilityScore * weights.availability)
 
-    console.log(JSON.stringify(finalScore, null, 2))
 
     return {
       processor,
