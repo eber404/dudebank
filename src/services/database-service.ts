@@ -41,6 +41,33 @@ export class DatabaseService {
     )
   }
 
+  async executeAtomicPaymentPersistence(
+    payment: ProcessedPayment, 
+    cacheUpdateFn: () => Promise<void>
+  ): Promise<void> {
+    const client = await this.db.connect()
+    
+    try {
+      await client.query('BEGIN')
+      
+      // Insert payment in database
+      await client.query(
+        'INSERT INTO payments (correlation_id, amount, processor, requested_at, status) VALUES ($1, $2, $3, $4, $5)',
+        [payment.correlationId, payment.amount, payment.processor, payment.requestedAt, payment.status]
+      )
+      
+      // Execute cache update
+      await cacheUpdateFn()
+      
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+
   async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
     const { query, params } = this.buildSummaryQuery(from, to)
     const result = await this.db.query(query, params)

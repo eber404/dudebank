@@ -42,22 +42,23 @@ export class PaymentService {
       const requestedAt = new Date().toISOString()
 
       if (!response.ok) return
+      
       const processor = this.paymentRouter.selectOptimalProcessor()
-
-      const dbPromise = this.databaseService.persistPayment({
+      const processedPayment = {
         correlationId: payment.correlationId,
         amount: payment.amount,
         processor: processor.type,
         requestedAt,
-        status: 'processed'
-      })
+        status: 'processed' as const
+      }
 
-      const cachePromise = this.cacheService.updateCache(processor.type, payment.amount)
-
-      await Promise.allSettled([
-        dbPromise,
-        cachePromise
-      ])
+      // Atomic transaction: DB + Cache together
+      await this.databaseService.executeAtomicPaymentPersistence(
+        processedPayment,
+        async () => {
+          await this.cacheService.updateCache(processor.type, payment.amount)
+        }
+      )
     } catch (error) {
       console.error('Error processing payment:', error)
     }
