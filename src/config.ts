@@ -33,14 +33,11 @@ export const config = {
   processing: {
     batchSize: 50,
     batchIntervalMs: 5,
-    requestTimeoutMs: 1250,
-    healthCheckIntervalMs: 5000,
-    healthCheckTimeoutMs: 1000,
   },
   paymentRouter: {
+    healthCheckTimeoutMs: 1000,
     healthCheckIntervalMs: 5000,
     requestTimeoutMs: 1250,
-    maxRetries: 2,
     processorScoreWeights: {
       fee: 0.6,
       responseTime: 0.3,

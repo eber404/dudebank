@@ -42,9 +42,9 @@ export class PaymentService {
       const requestedAt = new Date().toISOString()
 
       if (!result.response.ok) return
-      
+
       const processorType = result.processor.type
-      
+
       const processedPayment = {
         correlationId: payment.correlationId,
         amount: payment.amount,
@@ -53,13 +53,8 @@ export class PaymentService {
         status: 'processed' as const
       }
 
-      // Atomic transaction: DB + Cache together
-      await this.databaseService.executeAtomicPaymentPersistence(
-        processedPayment,
-        async () => {
-          await this.cacheService.updateCache(processorType, payment.amount)
-        }
-      )
+      await this.databaseService.persistPayment(processedPayment)
+      await this.cacheService.updateCache(processorType, payment.amount)
     } catch (error) {
       console.error('Error processing payment:', error)
     }
