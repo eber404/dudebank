@@ -26,8 +26,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.6"
-          memory: "95MB"
+          cpus: "0.75"
+          memory: "125MB"
 
   api2:
     <<: *api-service
@@ -78,12 +78,12 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: "90MB"
+          cpus: "0.05"
+          memory: "80MB"
 
   redis:
     image: redis:alpine
-    command: redis-server --maxmemory 60mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 70mb --maxmemory-policy allkeys-lru --tcp-keepalive 60
     env_file:
       - .env
     networks:
@@ -94,7 +94,7 @@ services:
       resources:
         limits:
           cpus: "0.05"
-          memory: "60MB"
+          memory: "70MB"
 
 networks:
   backend:

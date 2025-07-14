@@ -104,7 +104,7 @@ export class PaymentRouter {
     }
 
     const defaultAvgLatency = defaultLatencies.reduce((a, b) => a + b, 0) / defaultLatencies.length
-    
+
     // If default is performing well, use it
     if (defaultAvgLatency <= dynamicThreshold && defaultMetrics.consecutiveFailures === 0) {
       return defaultProcessor
@@ -113,13 +113,13 @@ export class PaymentRouter {
     // Cost-benefit analysis
     if (fallbackLatencies.length > 0) {
       const fallbackAvgLatency = fallbackLatencies.reduce((a, b) => a + b, 0) / fallbackLatencies.length
-      
+
       // Only switch if significant latency improvement
       const latencySaved = defaultAvgLatency - fallbackAvgLatency
       if (latencySaved > 50) {
         return fallbackProcessor
       }
-      
+
       // Or if default is significantly worse
       if (defaultAvgLatency > this.LATENCY_MULTIPLIER_THRESHOLD * fallbackAvgLatency) {
         return fallbackProcessor
@@ -198,12 +198,12 @@ export class PaymentRouter {
       return response
     } catch (error) {
       clearTimeout(timeoutId)
-      
+
       // Better error handling for AbortError
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new Error(`Request timeout after ${this.CIRCUIT_BREAKER_TIMEOUT}ms to ${processor.type} processor`)
       }
-      
+
       throw error
     }
   }
@@ -251,18 +251,15 @@ export class PaymentRouter {
         this.checkProcessorHealth(processor)
       )
       await Promise.allSettled(promises)
-    }, 5100)
+    }, config.processing.healthCheckIntervalMs)
   }
 
   private async checkProcessorHealth(processor: PaymentProcessor): Promise<void> {
-    const now = Date.now()
-    if (now - processor.lastHealthCheck <= 5000) return
-
-    processor.lastHealthCheck = now
+    processor.lastHealthCheck = Date.now()
 
     try {
       const response = await fetch(`${processor.url}/payments/service-health`, {
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(config.processing.healthCheckTimeoutMs)
       })
 
       if (response.ok) {

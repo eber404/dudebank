@@ -29,11 +29,10 @@ export const config = {
     },
   },
   processing: {
-    batchSize: 50,
+    batchSize: 100,
     batchIntervalMs: 10,
-    requestTimeoutMs: 5000,
-    healthCheckIntervalMs: 1000,
-    healthCheckCooldownMs: 6000,
-    healthCheckTimeoutMs: 2000,
+    requestTimeoutMs: 1250,
+    healthCheckIntervalMs: 5000,
+    healthCheckTimeoutMs: 1000,
   },
 }
