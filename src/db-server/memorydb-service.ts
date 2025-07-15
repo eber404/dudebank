@@ -3,6 +3,7 @@ import type { ProcessedPayment, PaymentSummary } from '@/types'
 
 export class MemoryDBService {
   private db: Database
+  private lockQueue: (() => void)[] = []
   private isLocked: boolean = false
 
   constructor() {
@@ -42,21 +43,37 @@ export class MemoryDBService {
   }
 
 
-  async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
-    try {
-      if (this.isLocked) {
-        return this.persistPaymentsBatch(payments)
-      }
-
+  private async acquireLock(): Promise<void> {
+    if (!this.isLocked) {
       this.isLocked = true
+      return Promise.resolve()
+    }
 
-      if (payments.length === 0) return
+    return new Promise<void>((resolve) => {
+      this.lockQueue.push(resolve)
+    })
+  }
 
+  private releaseLock(): void {
+    if (this.lockQueue.length > 0) {
+      const nextResolve = this.lockQueue.shift()!
+      nextResolve()
+    } else {
+      this.isLocked = false
+    }
+  }
+
+  async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
+    if (payments.length === 0) return
+
+    await this.acquireLock()
+
+    try {
       const stmt = this.db.prepare(`
-      INSERT OR IGNORE INTO payments 
-      (correlation_id, amount, processor, requested_at, status) 
-      VALUES (?, ?, ?, ?, ?)
-    `)
+        INSERT OR IGNORE INTO payments 
+        (correlation_id, amount, processor, requested_at, status) 
+        VALUES (?, ?, ?, ?, ?)
+      `)
 
       const transaction = this.db.transaction((payments: ProcessedPayment[]) => {
         for (const payment of payments) {
@@ -71,12 +88,8 @@ export class MemoryDBService {
       })
 
       transaction(payments)
-
-      this.isLocked = false
-    } catch (error) {
-      throw error
     } finally {
-      this.isLocked = false
+      this.releaseLock()
     }
   }
 
