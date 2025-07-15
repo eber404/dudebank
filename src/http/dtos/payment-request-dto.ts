@@ -5,20 +5,16 @@ const paymentSchema = z.object({
   amount: z.number().positive(),
 })
 
-type PaymentIn = z.input<typeof paymentSchema>
-type PaymentOut = z.output<typeof paymentSchema>
-
-
 export class PaymentRequestDTO {
   readonly correlationId: string
   readonly amount: number
 
-  private constructor(data: PaymentOut) {
+  private constructor(data: z.output<typeof paymentSchema>) {
     this.correlationId = data.correlationId
     this.amount = data.amount
   }
 
-  static create(input: PaymentIn) {
+  static create(input: z.input<typeof paymentSchema>) {
     const validation = paymentSchema.safeParse(input)
 
     if (!validation.success) {

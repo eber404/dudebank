@@ -39,11 +39,6 @@ export interface ProcessorHealth {
   lastChecked: number
 }
 
-export interface ProcessorScore {
-  processor: PaymentProcessor
-  score: number
-  reasoning: string
-}
 
 export interface PaymentProcessorRequest {
   correlationId: string

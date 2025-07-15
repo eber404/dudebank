@@ -38,11 +38,6 @@ export const config = {
     healthCheckTimeoutMs: 1000,
     healthCheckIntervalMs: 5000,
     requestTimeoutMs: 1250,
-    processorScoreWeights: {
-      fee: 0.6,
-      responseTime: 0.3,
-      availability: 0.1
-    },
     raceProcessorsMaxAttempts: 50,
     fallbackSpeedAdvantageThreshold: 0.1176, // 11.76% faster required
   },

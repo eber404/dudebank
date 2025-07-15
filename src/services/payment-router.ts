@@ -3,7 +3,6 @@ import type {
   PaymentRequest,
   PaymentProcessor,
   ProcessorHealth,
-  ProcessorScore,
   PaymentProcessorRequest,
   HealthCheckResponse
 } from '@/types'
@@ -94,25 +93,6 @@ export class PaymentRouter {
     }
   }
 
-  private calculateProcessorScore(processor: PaymentProcessor, health: ProcessorHealth): ProcessorScore {
-    const weights = config.paymentRouter.processorScoreWeights
-
-    if (health.failing) {
-      return { processor, score: 0, reasoning: 'Unhealthy' }
-    }
-
-    const feeScore = processor.type === 'default' ? 100 : 70
-    const responseScore = Math.max(0, 100 - (health.minResponseTime / 10))
-    const availabilityScore = !health.failing ? 100 : 0
-
-    const finalScore = (feeScore * weights.fee) + (responseScore * weights.responseTime) + (availabilityScore * weights.availability)
-
-    return {
-      processor,
-      score: finalScore,
-      reasoning: `Fee: ${feeScore}, Response: ${responseScore}, Health: ${availabilityScore}`
-    }
-  }
 
   async selectOptimalProcessor(): Promise<PaymentProcessor | null> {
     const healthPromises = this.processors.map(async processor => ({
@@ -267,9 +247,4 @@ export class PaymentRouter {
     }
   }
 
-  destroy(): void {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval)
-    }
-  }
 }
