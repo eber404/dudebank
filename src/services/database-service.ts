@@ -41,6 +41,32 @@ export class DatabaseService {
     )
   }
 
+  async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
+    if (payments.length === 0) return
+
+    const values: any[] = []
+    const placeholders: string[] = []
+
+    payments.forEach((payment, index) => {
+      const baseIndex = index * 5
+      placeholders.push(`($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5})`)
+      values.push(
+        payment.correlationId,
+        payment.amount,
+        payment.processor,
+        payment.requestedAt,
+        payment.status
+      )
+    })
+
+    const query = `
+      INSERT INTO payments (correlation_id, amount, processor, requested_at, status) 
+      VALUES ${placeholders.join(', ')}
+    `
+
+    await this.db.query(query, values)
+  }
+
 
   async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
     const { query, params } = this.buildSummaryQuery(from, to)

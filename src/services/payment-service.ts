@@ -1,5 +1,5 @@
 import { config } from '@/config'
-import type { PaymentRequest, PaymentSummary } from '@/types'
+import type { PaymentRequest, PaymentSummary, ProcessedPayment } from '@/types'
 
 import { DatabaseService } from './database-service'
 import { CacheService } from './cache-service'
@@ -33,15 +33,36 @@ export class PaymentService {
 
   private async processBatch(payments: PaymentRequest[]): Promise<void> {
     const promises = payments.map(payment => this.processPayment(payment))
-    await Promise.allSettled(promises)
+    const results = await Promise.allSettled(promises)
+
+    const successfulPayments: ProcessedPayment[] = []
+    const cacheUpdates: { processorType: string; amount: number }[] = []
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        successfulPayments.push(result.value.processedPayment)
+        cacheUpdates.push({
+          processorType: result.value.processorType,
+          amount: result.value.processedPayment.amount
+        })
+      }
+    }
+
+    if (successfulPayments.length > 0) {
+      await this.databaseService.persistPaymentsBatch(successfulPayments)
+      
+      for (const update of cacheUpdates) {
+        await this.cacheService.updateCache(update.processorType, update.amount)
+      }
+    }
   }
 
-  private async processPayment(payment: PaymentRequest): Promise<void> {
+  private async processPayment(payment: PaymentRequest): Promise<{ processedPayment: ProcessedPayment; processorType: string } | null> {
     try {
       const result = await this.paymentRouter.processPaymentWithRetry(payment)
       const requestedAt = new Date().toISOString()
 
-      if (!result.response.ok) return
+      if (!result.response.ok) return null
 
       const processorType = result.processor.type
 
@@ -53,10 +74,10 @@ export class PaymentService {
         status: 'processed' as const
       }
 
-      await this.databaseService.persistPayment(processedPayment)
-      await this.cacheService.updateCache(processorType, payment.amount)
+      return { processedPayment, processorType }
     } catch (error) {
       console.error('Error processing payment:', error)
+      return null
     }
   }
 
