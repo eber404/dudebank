@@ -115,24 +115,40 @@ export class PaymentRouter {
   }
 
   async selectOptimalProcessor(): Promise<PaymentProcessor | null> {
-    const scoresPromises = this.processors.map(async processor => {
-      const health = await this.cacheService.getProcessorHealth(processor.type)
-      if (!health) return null
-      return this.calculateProcessorScore(processor, health)
-    })
+    const healthPromises = this.processors.map(async processor => ({
+      processor,
+      health: await this.cacheService.getProcessorHealth(processor.type)
+    }))
 
-    const scores = (await Promise.all(scoresPromises)).filter(score => score !== null) as ProcessorScore[]
-    const validScores = scores.filter(score => score.score > 0)
+    const processorsWithHealth = await Promise.all(healthPromises)
+    const validProcessors = processorsWithHealth.filter(({ health }) => health && !health.failing)
 
-    if (validScores.length === 0) {
+    if (validProcessors.length === 0) {
       return null
     }
 
-    const bestScore = validScores.reduce((prev, current) =>
-      prev.score > current.score ? prev : current
-    )
+    const defaultProcessor = validProcessors.find(({ processor }) => processor.type === 'default')
+    const fallbackProcessor = validProcessors.find(({ processor }) => processor.type === 'fallback')
 
-    return bestScore.processor
+    if (!defaultProcessor) {
+      return fallbackProcessor?.processor || null
+    }
+
+    if (!fallbackProcessor) {
+      return defaultProcessor.processor
+    }
+
+    const defaultResponseTime = defaultProcessor.health!.minResponseTime
+    const fallbackResponseTime = fallbackProcessor.health!.minResponseTime
+    const speedAdvantageThreshold = config.paymentRouter.fallbackSpeedAdvantageThreshold
+
+    const fallbackSpeedAdvantage = (defaultResponseTime - fallbackResponseTime) / defaultResponseTime
+
+    if (fallbackSpeedAdvantage > speedAdvantageThreshold) {
+      return fallbackProcessor.processor
+    }
+
+    return defaultProcessor.processor
   }
 
   private async getOptimalProcessor(): Promise<PaymentProcessor> {

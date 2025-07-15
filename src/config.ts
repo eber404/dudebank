@@ -44,5 +44,6 @@ export const config = {
       availability: 0.1
     },
     raceProcessorsMaxAttempts: 50,
+    fallbackSpeedAdvantageThreshold: 0.1176, // 11.76% faster required
   },
 }
