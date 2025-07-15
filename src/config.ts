@@ -31,14 +31,14 @@ export const config = {
     },
   },
   processing: {
-    batchSize: 50,
+    batchSize: 100,
     batchIntervalMs: 5,
   },
   paymentRouter: {
-    healthCheckTimeoutMs: 1000,
+    healthCheckTimeoutMs: 5000,
     healthCheckIntervalMs: 5000,
-    requestTimeoutMs: 1250,
-    raceProcessorsTimeoutMs: 8000, // 8 seconds timeout for race processors
-    fallbackSpeedAdvantageThreshold: 0.1176, // 11.76% faster required
+    requestTimeoutMs: 1000,
+    raceProcessorsTimeoutMs: 10_000,
+    fallbackSpeedAdvantageThreshold: 0.1176,
   },
 }
