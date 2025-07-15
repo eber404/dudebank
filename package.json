@@ -17,12 +17,9 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "ioredis": "^5.4.1",
-    "pg": "^8.11.5",
     "zod": "^4.0.5"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/pg": "^8.11.6"
+    "@types/bun": "latest"
   }
 }

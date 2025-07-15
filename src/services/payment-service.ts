@@ -1,21 +1,20 @@
 import { config } from '@/config'
-import type { PaymentRequest, PaymentSummary, ProcessedPayment } from '@/types'
+import type { PaymentRequest, PaymentSummary, ProcessedPayment, ProcessorType } from '@/types'
 
-import { DatabaseService } from './database-service'
-import { CacheService } from './cache-service'
 import { PaymentRouter } from './payment-router'
+import { MemoryDBClient } from './memorydb-client'
 
 export class PaymentService {
-  private databaseService: DatabaseService
-  private cacheService: CacheService
   private paymentRouter: PaymentRouter
+  private memoryDBClient: MemoryDBClient
   private paymentQueue: PaymentRequest[] = []
   private processing = false
+  private totalProcessed = 0
+  private totalReceived = 0
 
   constructor() {
-    this.databaseService = new DatabaseService()
-    this.cacheService = new CacheService()
     this.paymentRouter = new PaymentRouter()
+    this.memoryDBClient = new MemoryDBClient()
 
     this.startPaymentProcessor()
   }
@@ -32,35 +31,35 @@ export class PaymentService {
   }
 
   private async processBatch(payments: PaymentRequest[]): Promise<void> {
+    const batchStartTime = Date.now()
+
     const promises = payments.map(payment => this.processPayment(payment))
     const results = await Promise.allSettled(promises)
 
     const successfulPayments: ProcessedPayment[] = []
-    const cacheUpdates: { processorType: string; amount: number }[] = []
 
     for (const result of results) {
       if (result.status === 'fulfilled' && result.value) {
         successfulPayments.push(result.value.processedPayment)
-        cacheUpdates.push({
-          processorType: result.value.processorType,
-          amount: result.value.processedPayment.amount
-        })
       }
     }
 
     if (successfulPayments.length > 0) {
-      await this.databaseService.persistPaymentsBatch(successfulPayments)
-      
-      for (const update of cacheUpdates) {
-        await this.cacheService.updateCache(update.processorType, update.amount)
-      }
+      const dbStartTime = Date.now()
+      await this.memoryDBClient.persistPaymentsBatch(successfulPayments)
+      const dbTime = Date.now() - dbStartTime
+
+      const totalTime = Date.now() - batchStartTime
+      this.totalProcessed += successfulPayments.length
+
+      console.log(`Batch processed: ${successfulPayments.length}/${payments.length} payments | DB: ${dbTime}ms | Total: ${totalTime}ms | Queue: ${this.paymentQueue.length}`)
     }
   }
 
-  private async processPayment(payment: PaymentRequest): Promise<{ processedPayment: ProcessedPayment; processorType: string } | null> {
+  private async processPayment(payment: PaymentRequest): Promise<{ processedPayment: ProcessedPayment; processorType: ProcessorType } | null> {
     try {
-      const result = await this.paymentRouter.processPaymentWithRetry(payment)
       const requestedAt = new Date().toISOString()
+      const result = await this.paymentRouter.processPaymentWithRetry(payment, requestedAt)
 
       if (!result.response.ok) return null
 
@@ -81,19 +80,14 @@ export class PaymentService {
     }
   }
 
-
   async addPayment(payment: PaymentRequest): Promise<void> {
     this.paymentQueue.push(payment)
+    this.totalReceived++
   }
 
   async getPaymentsSummary(from?: string, to?: string): Promise<PaymentSummary> {
     try {
-      if (!from && !to) {
-        const cachedSummary = await this.cacheService.getCachedSummary()
-        if (cachedSummary) return cachedSummary
-      }
-
-      return await this.databaseService.getDatabaseSummary(from, to)
+      return await this.memoryDBClient.getDatabaseSummary(from, to)
     } catch (error) {
       console.error('Error getting payments summary:', error)
       return {
@@ -103,26 +97,24 @@ export class PaymentService {
     }
   }
 
-  async purgeAll(): Promise<{ database: boolean; cache: boolean; queue: boolean }> {
+
+  async purgeAll(): Promise<{ database: boolean; queue: boolean }> {
     const results = {
       database: false,
-      cache: false,
       queue: false
     }
 
     try {
-      // Clear processing queue
+      // Clear processing queue and reset stats
       this.paymentQueue = []
+      this.totalProcessed = 0
+      this.totalReceived = 0
       results.queue = true
-      console.log('Payment queue cleared')
+      console.log('Payment queue and stats cleared')
 
-      // Purge database
-      await this.databaseService.purgeDatabase()
+      // Purge MemoryDB
+      await this.memoryDBClient.purgeDatabase()
       results.database = true
-
-      // Purge cache
-      await this.cacheService.purgeCache()
-      results.cache = true
 
       console.log('Complete purge successful')
       return results

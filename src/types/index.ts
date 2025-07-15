@@ -3,9 +3,11 @@ export interface PaymentRequest {
   amount: number
 }
 
+export type ProcessorType = 'default' | 'fallback'
+
 export interface PaymentProcessor {
   url: string
-  type: 'default' | 'fallback'
+  type: ProcessorType
 }
 
 export interface PaymentSummary {
@@ -22,7 +24,7 @@ export interface PaymentSummary {
 export interface ProcessedPayment {
   correlationId: string
   amount: number
-  processor: string
+  processor: ProcessorType
   requestedAt: string
   status: string
 }
@@ -33,11 +35,6 @@ export interface HealthCheckResponse {
   minResponseTime: number
 }
 
-export interface ProcessorHealth {
-  failing: boolean
-  minResponseTime: number
-  lastChecked: number
-}
 
 
 export interface PaymentProcessorRequest {

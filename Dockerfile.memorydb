@@ -1,0 +1,22 @@
+FROM oven/bun:alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lockb tsconfig.json ./
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source code
+COPY src ./src
+
+# Create volume for SQLite database
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
+# Expose port
+EXPOSE 8081
+
+# Start the MemoryDB server
+CMD ["bun", "run", "src/db-server/index.ts"]
