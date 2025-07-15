@@ -57,10 +57,11 @@ export class PaymentRouter {
   }
 
   private async checkProcessorHealth(processor: PaymentProcessor): Promise<void> {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), config.paymentRouter.healthCheckTimeoutMs)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), config.paymentRouter.healthCheckTimeoutMs)
 
+    try {
+      const lastChecked = Date.now()
       const response = await fetch(`${processor.url}/payments/service-health`, {
         method: 'GET',
         signal: controller.signal
@@ -75,13 +76,15 @@ export class PaymentRouter {
       const health = await response.json() as HealthCheckResponse
 
       const processorHealth: ProcessorHealth = {
-        failing: health.failing,
+        failing: false,
         minResponseTime: health.minResponseTime,
-        lastChecked: Date.now()
+        lastChecked
       }
 
       await this.cacheService.setProcessorHealth(processor.type, processorHealth)
     } catch (error) {
+      clearTimeout(timeoutId)
+
       const failedHealth: ProcessorHealth = {
         failing: true,
         minResponseTime: Infinity,
