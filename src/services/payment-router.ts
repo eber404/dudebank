@@ -217,34 +217,38 @@ export class PaymentRouter {
     }
   }
 
-  private async raceProcessors(payment: PaymentRequest, attempt: number = 1): Promise<{ response: Response; processor: PaymentProcessor }> {
-    const maxAttempts = config.paymentRouter.raceProcessorsMaxAttempts
+  private async raceProcessors(payment: PaymentRequest): Promise<{ response: Response; processor: PaymentProcessor }> {
+    const startTime = Date.now()
+    const timeoutMs = config.paymentRouter.raceProcessorsTimeoutMs
 
-    if (attempt > maxAttempts) {
-      throw new Error(`All processors failed after ${maxAttempts} attempts`)
+    while (Date.now() - startTime < timeoutMs) {
+      const controllers = this.processors.map(() => new AbortController())
+
+      const promises = this.processors.map((processor, index) =>
+        this.makePaymentRequest(processor, payment, controllers[index]!.signal)
+          .then(response => ({ response, processor }))
+          .catch(error => ({ error, processor }))
+      )
+
+      try {
+        const results = await Promise.allSettled(promises)
+        controllers.forEach(controller => controller.abort())
+
+        for (const result of results) {
+          if (result.status === 'fulfilled' && 'response' in result.value) {
+            await this.cacheService.setOptimalProcessor(result.value.processor.type)
+            return { response: result.value.response, processor: result.value.processor }
+          }
+        }
+
+        console.log('All processors failed in this race iteration, retrying...')
+      } catch (error) {
+        controllers.forEach(controller => controller.abort())
+        console.log('Race iteration failed:', error)
+      }
     }
 
-    const controllers = this.processors.map(() => new AbortController())
-
-    const promises = this.processors.map((processor, index) =>
-      this.makePaymentRequest(processor, payment, controllers[index]!.signal)
-        .then(response => ({ response, processor }))
-    )
-
-    try {
-      const result = await Promise.race(promises)
-
-      controllers.forEach(controller => controller.abort())
-
-      await this.cacheService.setOptimalProcessor(result.processor.type)
-
-      return result
-    } catch (error) {
-      controllers.forEach(controller => controller.abort())
-      console.log(`Race attempt ${attempt} failed, retrying...`, error)
-
-      return await this.raceProcessors(payment, attempt + 1)
-    }
+    throw new Error(`All processors failed after ${timeoutMs}ms timeout`)
   }
 
 }

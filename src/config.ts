@@ -38,7 +38,7 @@ export const config = {
     healthCheckTimeoutMs: 1000,
     healthCheckIntervalMs: 5000,
     requestTimeoutMs: 1250,
-    raceProcessorsMaxAttempts: 50,
+    raceProcessorsTimeoutMs: 8000, // 8 seconds timeout for race processors
     fallbackSpeedAdvantageThreshold: 0.1176, // 11.76% faster required
   },
 }
