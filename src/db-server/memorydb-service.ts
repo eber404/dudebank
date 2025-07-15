@@ -3,6 +3,7 @@ import type { ProcessedPayment, PaymentSummary } from '@/types'
 
 export class MemoryDBService {
   private db: Database
+  private isLocked: boolean = false
 
   constructor() {
     const dbPath = Bun.env.DATABASE_PATH || '/app/data/payments.db'
@@ -42,27 +43,41 @@ export class MemoryDBService {
 
 
   async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
-    if (payments.length === 0) return
+    try {
+      if (this.isLocked) {
+        return this.persistPaymentsBatch(payments)
+      }
 
-    const stmt = this.db.prepare(`
+      this.isLocked = true
+
+      if (payments.length === 0) return
+
+      const stmt = this.db.prepare(`
       INSERT OR IGNORE INTO payments 
       (correlation_id, amount, processor, requested_at, status) 
       VALUES (?, ?, ?, ?, ?)
     `)
 
-    const transaction = this.db.transaction((payments: ProcessedPayment[]) => {
-      for (const payment of payments) {
-        stmt.run(
-          payment.correlationId,
-          payment.amount,
-          payment.processor,
-          payment.requestedAt,
-          payment.status
-        )
-      }
-    })
+      const transaction = this.db.transaction((payments: ProcessedPayment[]) => {
+        for (const payment of payments) {
+          stmt.run(
+            payment.correlationId,
+            payment.amount,
+            payment.processor,
+            payment.requestedAt,
+            payment.status
+          )
+        }
+      })
 
-    transaction(payments)
+      transaction(payments)
+
+      this.isLocked = false
+    } catch (error) {
+      throw error
+    } finally {
+      this.isLocked = false
+    }
   }
 
   async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
