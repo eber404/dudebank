@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 import { config } from '@/config'
 import type { PaymentRequest, PaymentSummary, ProcessedPayment, ProcessorType } from '@/types'
 
@@ -25,13 +27,13 @@ export class PaymentService {
       if (this.processing || this.paymentQueue.size === 0 || this.queueLock) return
 
       this.processing = true
-      
+
       // Thread-safe batch extraction
       const batch = this.extractBatch()
       if (batch.length > 0) {
         await this.processBatch(batch)
       }
-      
+
       this.processing = false
     }, config.processing.batchIntervalMs)
   }
@@ -41,7 +43,7 @@ export class PaymentService {
     try {
       const batch: PaymentRequest[] = []
       const entries = Array.from(this.paymentQueue.entries())
-      
+
       for (let i = 0; i < Math.min(config.processing.batchSize, entries.length); i++) {
         const entry = entries[i]
         if (entry) {
@@ -50,7 +52,7 @@ export class PaymentService {
           this.paymentQueue.delete(correlationId)
         }
       }
-      
+
       return batch
     } finally {
       this.queueLock = false
@@ -120,14 +122,27 @@ export class PaymentService {
     while (this.queueLock) {
       await new Promise(resolve => setTimeout(resolve, 1))
     }
-    
+
     this.paymentQueue.set(payment.correlationId, payment)
     this.atomicIncrement('totalReceived')
   }
 
   async getPaymentsSummary(from?: string, to?: string): Promise<PaymentSummary> {
     try {
-      return await this.memoryDBClient.getDatabaseSummary(from, to)
+      const res = await this.memoryDBClient.getDatabaseSummary(from, to)
+
+      const summary: PaymentSummary = {
+        default: {
+          totalRequests: this.roundToComercialAmount(res.default.totalRequests),
+          totalAmount: this.roundToComercialAmount(res.default.totalAmount)
+        },
+        fallback: {
+          totalRequests: this.roundToComercialAmount(res.fallback.totalRequests),
+          totalAmount: this.roundToComercialAmount(res.fallback.totalAmount)
+        }
+      }
+
+      return summary
     } catch (error) {
       console.error('Error getting payments summary:', error)
       return {
@@ -137,6 +152,9 @@ export class PaymentService {
     }
   }
 
+  private roundToComercialAmount(amount: number): number {
+    return new Decimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()
+  }
 
   async purgeAll(): Promise<{ database: boolean; queue: boolean }> {
     const results = {
