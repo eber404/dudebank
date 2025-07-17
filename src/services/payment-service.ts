@@ -23,8 +23,7 @@ export class PaymentService {
 
   private startPaymentProcessor(): void {
     setInterval(async () => {
-      if (this.isProcessingBatch || this.paymentQueue.size === 0) return
-
+      if (this.isProcessingBatch || !this.paymentQueue.size) return
       this.isProcessingBatch = true
       try {
         const batch = this.extractBatch()
@@ -43,11 +42,10 @@ export class PaymentService {
 
     for (let i = 0; i < Math.min(config.processing.batchSize, entries.length); i++) {
       const entry = entries[i]
-      if (entry) {
-        const [correlationId, payment] = entry
-        batch.push(payment)
-        this.paymentQueue.delete(correlationId)
-      }
+      if (!entry) continue
+      const [correlationId, payment] = entry
+      batch.push(payment)
+      this.paymentQueue.delete(correlationId)
     }
 
     return batch
@@ -62,21 +60,20 @@ export class PaymentService {
     const successfulPayments: ProcessedPayment[] = []
 
     for (const result of results) {
-      if (result.status === 'fulfilled' && result.value) {
-        successfulPayments.push(result.value.processedPayment)
-      }
+      if (result.status !== 'fulfilled' || !result.value) continue
+      successfulPayments.push(result.value.processedPayment)
     }
 
-    if (successfulPayments.length > 0) {
-      const dbStartTime = Date.now()
-      await this.memoryDBClient.persistPaymentsBatch(successfulPayments)
-      const dbTime = Date.now() - dbStartTime
+    if (!successfulPayments.length) return
 
-      const totalTime = Date.now() - batchStartTime
-      this.atomicIncrement('totalProcessed', successfulPayments.length)
+    const dbStartTime = Date.now()
+    await this.memoryDBClient.persistPaymentsBatch(successfulPayments)
+    const dbTime = Date.now() - dbStartTime
 
-      console.log(`Batch processed: ${successfulPayments.length}/${payments.length} payments | DB: ${dbTime}ms | Total: ${totalTime}ms | Queue: ${this.paymentQueue.size}`)
-    }
+    const totalTime = Date.now() - batchStartTime
+    this.atomicIncrement('totalProcessed', successfulPayments.length)
+
+    console.log(`Batch processed: ${successfulPayments.length}/${payments.length} payments | DB: ${dbTime}ms | Total: ${totalTime}ms | Queue: ${this.paymentQueue.size}`)
   }
 
   private async processPayment(payment: PaymentRequest): Promise<{ processedPayment: ProcessedPayment; processorType: ProcessorType } | null> {
@@ -106,7 +103,9 @@ export class PaymentService {
   private atomicIncrement(counter: 'totalProcessed' | 'totalReceived', amount: number = 1): void {
     if (counter === 'totalProcessed') {
       this.totalProcessed += amount
-    } else {
+    }
+
+    if (counter === 'totalReceived') {
       this.totalReceived += amount
     }
   }
