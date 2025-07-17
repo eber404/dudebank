@@ -10,10 +10,9 @@ export class PaymentService {
   private paymentRouter: PaymentRouter
   private memoryDBClient: MemoryDBClient
   private paymentQueue: Map<string, PaymentRequest> = new Map()
-  private processing = false
   private totalProcessed = 0
   private totalReceived = 0
-  private queueLock = false
+  private isProcessingBatch = false
 
   constructor() {
     this.paymentRouter = new PaymentRouter()
@@ -24,39 +23,34 @@ export class PaymentService {
 
   private startPaymentProcessor(): void {
     setInterval(async () => {
-      if (this.processing || this.paymentQueue.size === 0 || this.queueLock) return
+      if (this.isProcessingBatch || this.paymentQueue.size === 0) return
 
-      this.processing = true
-
-      // Thread-safe batch extraction
-      const batch = this.extractBatch()
-      if (batch.length > 0) {
-        await this.processBatch(batch)
+      this.isProcessingBatch = true
+      try {
+        const batch = this.extractBatch()
+        if (batch.length > 0) {
+          await this.processBatch(batch)
+        }
+      } finally {
+        this.isProcessingBatch = false
       }
-
-      this.processing = false
     }, config.processing.batchIntervalMs)
   }
 
   private extractBatch(): PaymentRequest[] {
-    this.queueLock = true
-    try {
-      const batch: PaymentRequest[] = []
-      const entries = Array.from(this.paymentQueue.entries())
+    const batch: PaymentRequest[] = []
+    const entries = Array.from(this.paymentQueue.entries())
 
-      for (let i = 0; i < Math.min(config.processing.batchSize, entries.length); i++) {
-        const entry = entries[i]
-        if (entry) {
-          const [correlationId, payment] = entry
-          batch.push(payment)
-          this.paymentQueue.delete(correlationId)
-        }
+    for (let i = 0; i < Math.min(config.processing.batchSize, entries.length); i++) {
+      const entry = entries[i]
+      if (entry) {
+        const [correlationId, payment] = entry
+        batch.push(payment)
+        this.paymentQueue.delete(correlationId)
       }
-
-      return batch
-    } finally {
-      this.queueLock = false
     }
+
+    return batch
   }
 
   private async processBatch(payments: PaymentRequest[]): Promise<void> {
@@ -117,12 +111,7 @@ export class PaymentService {
     }
   }
 
-  async addPayment(payment: PaymentRequest): Promise<void> {
-    // Wait for queue lock to be released
-    while (this.queueLock) {
-      await new Promise(resolve => setTimeout(resolve, 1))
-    }
-
+  addPayment(payment: PaymentRequest): void {
     this.paymentQueue.set(payment.correlationId, payment)
     this.atomicIncrement('totalReceived')
   }
@@ -163,8 +152,8 @@ export class PaymentService {
     }
 
     try {
-      // Wait for any ongoing processing to complete
-      while (this.processing || this.queueLock) {
+      // Wait for any ongoing batch processing to complete
+      while (this.isProcessingBatch) {
         await new Promise(resolve => setTimeout(resolve, 10))
       }
 
