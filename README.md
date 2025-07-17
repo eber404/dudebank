@@ -5,16 +5,42 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 ## 🏗️ Arquitetura
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Nginx     │───▶│   API 1     │───▶│ PostgreSQL  │
-│Load Balancer│    │   API 2     │    │  Database   │
-└─────────────┘    └─────────────┘    └─────────────┘
-                          │
-                          ▼
-                   ┌─────────────┐
-                   │    Redis    │
-                   │    Cache    │
-                   └─────────────┘
+┌─────────────┐    ┌─────────────┐
+│   Nginx     │───▶│   API 1     │──┐
+│Load Balancer│    │   API 2     │  │
+└─────────────┘    └─────────────┘  │
+                                    │ POST /payments
+                                    ▼
+                   ┌─────────────────────────┐
+                   │     In-Memory Queue     │
+                   │   (Thread-Safe Map)     │
+                   └─────────────────────────┘
+                                    │ Background Processor
+                                    │ (Batches of 100/5ms)
+                                    ▼
+            ┌─────────────────────────────────────┐
+            │         Payment Router              │
+            │    (Health Check + Failover)        │
+            └─────────────────────────────────────┘
+                     │                   │
+            ┌────────▼───────┐   ┌───────▼────────┐
+            │   Default      │   │   Fallback     │
+            │  Processor     │   │  Processor     │
+            │ (Preferred)    │   │  (Backup)      │
+            └────────────────┘   └────────────────┘
+                     │                   │
+                     └───────┬───────────┘
+                             │ Successful payments
+                             ▼
+                   ┌─────────────────────────┐
+                   │     SQLite MemoryDB     │
+                   │   (Batch Persistence)   │
+                   └─────────────────────────┘
+                             ▲
+                             │ GET /payments-summary
+                   ┌─────────────────────────┐
+                   │      API Response       │
+                   └─────────────────────────┘
 ```
 
 ## 📋 Endpoints
@@ -35,18 +61,14 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 - **Retry com Fallback**: Se o processador primário falha, tenta o alternativo automaticamente
 - **Race Condition**: Em caso de falha total, executa requisições paralelas para ambos os processadores
 
-### Otimizações de Performance
-- **Processamento em Lote**: Processa pagamentos em batches de 100 itens a cada 5ms
-- **Cache Redis**: Armazena contadores em tempo real para evitar consultas ao banco
-- **Connection Pooling**: Pool de conexões PostgreSQL otimizado (2-20 conexões)
-- **Timeouts Agressivos**: Requisições com timeout de 1s para evitar latência alta
+## 🚀 Tecnologias
 
-### Alocação de Recursos
-- **APIs**: 2 instâncias com 0.6 CPU e 120MB RAM cada
-- **Nginx**: 0.05 CPU e 15MB RAM (load balancer)
-- **PostgreSQL**: 0.05 CPU e 70MB RAM
-- **Redis**: 0.05 CPU e 50MB RAM com LRU eviction
-- **Total**: 1.35 CPU e 325MB RAM (dentro do limite de 1.5 CPU e 350MB)
+### Stack Principal
+- **Runtime**: Bun (JavaScript runtime)
+- **Database**: SQLite (Bun built-in)
+- **Validation**: Zod
+- **Financial Math**: Decimal.js
+- **Load Balancer**: Nginx Alpine
 
 ## 🛠️ Como Executar
 
@@ -61,4 +83,21 @@ bun install
 
 # Executar aplicação com Docker
 bun run docker:start:clean
+
+# Executar em modo desenvolvimento
+bun run dev
+```
+
+### Testes de Performance
+```bash
+# Testar endpoint de pagamentos
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"correlationId":"550e8400-e29b-41d4-a716-446655440000","amount":100.50}' \
+  http://localhost:3000/payments
+
+# Testar resumo de pagamentos
+curl http://localhost:3000/payments-summary
+
+# Limpar banco e cache
+curl -X DELETE http://localhost:3000/admin/purge
 ```
