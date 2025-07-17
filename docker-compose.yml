@@ -2,18 +2,20 @@ services:
   api1: &api-service
     build:
       context: .
+      target: development
     env_file:
       - .env
+    environment:
+      - IS_MAIN_INSTANCE=true
     volumes:
       - .:/app
+      - memorydb_data:/app/data
     ports:
       - "3001:8080"
     command: ["bun", "run", "dev"]
     networks:
       - backend
       - payment-processor
-    volumes:
-      - memorydb_data:/app/data
     depends_on:
       - memorydb
     deploy:

@@ -55,7 +55,7 @@ export const httpServer = {
       fetch: handleRequest,
     })
 
-    console.log(`🚀 Server running on http://localhost:${port}`)
+    console.log(`🚀 [${Bun.env.HOSTNAME}] Server running on http://localhost:${port}`,)
     return server
   }
 }

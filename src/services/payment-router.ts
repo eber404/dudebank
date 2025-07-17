@@ -24,16 +24,16 @@ export class PaymentRouter {
       }
     ]
 
-    this.startHealthCheck()
+    if (config.isMainInstance) {
+      this.performHealthChecks()
+      this.startHealthChecker()
+    }
   }
 
-  private startHealthCheck(): void {
+  private startHealthChecker(): void {
     this.healthCheckInterval = setInterval(async () => {
       await this.performHealthChecks()
     }, config.paymentRouter.healthCheckIntervalMs)
-
-    // Initial health check
-    this.performHealthChecks()
   }
 
   private async performHealthChecks(): Promise<void> {
@@ -77,8 +77,6 @@ export class PaymentRouter {
         minResponseTime: Infinity,
         lastChecked: Date.now()
       })
-
-      console.log(`Health check failed for ${processor.type}:`, error)
     }
   }
 
@@ -191,7 +189,7 @@ export class PaymentRouter {
         this.optimalProcessor = fallbackProcessor.type
         return { response: result, processor: fallbackProcessor }
       } catch (fallbackError) {
-        console.log(`Fallback processor ${fallbackProcessor.type} failed:`, fallbackError)
+        console.log(`Fallback processor ${fallbackProcessor.type} failed:`, String(fallbackError))
         return await this.raceProcessors(payment, requestedAt)
       }
     }
@@ -231,4 +229,10 @@ export class PaymentRouter {
     throw new Error(`All processors failed after ${timeoutMs}ms timeout`)
   }
 
+  destroy(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval)
+      this.healthCheckInterval = null
+    }
+  }
 }

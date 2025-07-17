@@ -1,4 +1,5 @@
 export const config = {
+  isMainInstance: Bun.env.IS_MAIN_INSTANCE === 'true',
   server: {
     port: parseInt(Bun.env.SERVER_PORT || '8080'),
   },
