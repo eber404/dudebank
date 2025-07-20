@@ -73,7 +73,7 @@ export class PaymentService {
     const totalTime = Date.now() - batchStartTime
     this.atomicIncrement('totalProcessed', successfulPayments.length)
 
-    console.log(`Batch processed: ${successfulPayments.length}/${payments.length} payments | DB: ${dbTime}ms | Total: ${totalTime}ms | Queue: ${this.paymentQueue.size}`)
+    // console.log(`Batch processed: ${successfulPayments.length}/${payments.length} payments | DB: ${dbTime}ms | Total: ${totalTime}ms | Queue: ${this.paymentQueue.size}`)
   }
 
   private async processPayment(payment: PaymentRequest): Promise<{ processedPayment: ProcessedPayment; processorType: ProcessorType } | null> {

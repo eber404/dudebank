@@ -104,20 +104,61 @@ export class PaymentRouter {
   private rankOptimalProcessor(healthStatuses: ProcessorHealthStatus[]): PaymentProcessor {
     const defaultHealth = healthStatuses.find(status => status.has('default'))?.get('default') as ProcessorHealth
     const fallbackHealth = healthStatuses.find(status => status.has('fallback'))?.get('fallback') as ProcessorHealth
-    const speedAdvantageThreshold = config.paymentRouter.fallbackSpeedAdvantageThreshold
+
+    if (defaultHealth.failing && !fallbackHealth.failing) {
+      return this.processors.get('fallback')!
+    }
+
+    if (!defaultHealth.failing && fallbackHealth.failing
+      || defaultHealth.failing && fallbackHealth.failing
+    ) {
+      return this.processors.get('default')!
+    }
+
+    // Tratar casos de Infinity
+    if (defaultHealth.minResponseTime === Infinity) {
+      return this.processors.get('fallback')!
+    }
+
+    if (fallbackHealth.minResponseTime === Infinity) {
+      return this.processors.get('default')!
+    }
+
+    // Cálculo de custo-benefício considerando taxas
+    const defaultFee = config.paymentRouter.processorFees.default
+    const fallbackFee = config.paymentRouter.processorFees.fallback
+
+    // Para ser economicamente vantajoso, fallback deve compensar o custo extra com velocidade
+    // Se fallback custa 3x mais (15% vs 5%), deve ser pelo menos 3x mais rápido
+    const costMultiplier = fallbackFee / defaultFee // 3.0 para taxas atuais (15%/5%)
+    const requiredSpeedAdvantage = costMultiplier - 1 // 2.0 (200% mais rápido)
+
+    // Calcular vantagem de velocidade SEM Math.abs para preservar sinal
+    // Positivo = fallback mais rápido, Negativo = fallback mais lento
     const fallbackSpeedAdvantage = (defaultHealth.minResponseTime - fallbackHealth.minResponseTime) / defaultHealth.minResponseTime
 
-    if (fallbackSpeedAdvantage > speedAdvantageThreshold) {
-      return {
-        url: this.processors.get('fallback')!.url,
-        type: 'fallback'
-      }
+    const isEconomicallyViable = fallbackSpeedAdvantage >= requiredSpeedAdvantage
+    const costDifference = ((fallbackFee - defaultFee) * 100).toFixed(1)
+
+    console.log({
+      defaultHealth: { ...defaultHealth, fee: `${(defaultFee * 100)}%` },
+      fallbackHealth: { ...fallbackHealth, fee: `${(fallbackFee * 100)}%` },
+      fallbackSpeedAdvantage: `${(fallbackSpeedAdvantage * 100).toFixed(1)}%`,
+      requiredSpeedAdvantage: `${(requiredSpeedAdvantage * 100).toFixed(1)}%`,
+      costDifference: `+${costDifference}%`,
+      costMultiplier: `${costMultiplier.toFixed(1)}x`,
+      isEconomicallyViable,
+      decision: isEconomicallyViable ? 'Fallback (speed compensates cost)' : 'Default (better cost-benefit)'
+    })
+
+    if (!Number.isNaN(fallbackSpeedAdvantage)
+      && Number.isFinite(fallbackSpeedAdvantage)
+      && isEconomicallyViable
+    ) {
+      return this.processors.get('fallback')!
     }
 
-    return {
-      url: this.processors.get('default')!.url,
-      type: 'default'
-    }
+    return this.processors.get('default')!
   }
 
   private getAlternativeProcessor(processor: PaymentProcessor): PaymentProcessor {

@@ -24,6 +24,10 @@ export const config = {
     optimalProcessorCheckIntervalMs: 1000,
     requestTimeoutMs: 1000,
     raceProcessorsTimeoutMs: 10_000,
-    fallbackSpeedAdvantageThreshold: 0.1176,
+    fallbackSpeedAdvantageThreshold: 0.10, // 10% speed advantage
+    processorFees: {
+      default: 0.05, // 5%
+      fallback: 0.15, // 15%
+    },
   },
 }
