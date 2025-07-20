@@ -4,11 +4,11 @@ import { config } from '@/config'
 import type { PaymentRequest, PaymentSummary, ProcessedPayment, ProcessorType } from '@/types'
 
 import { PaymentRouter } from './payment-router'
-import { MemoryDBClient } from './memorydb-client'
+import { RedisService } from './redis-service'
 
 export class PaymentService {
   private paymentRouter: PaymentRouter
-  private memoryDBClient: MemoryDBClient
+  private redisService: RedisService
   private paymentQueue: Map<string, PaymentRequest> = new Map()
   private totalProcessed = 0
   private totalReceived = 0
@@ -16,7 +16,7 @@ export class PaymentService {
 
   constructor() {
     this.paymentRouter = new PaymentRouter()
-    this.memoryDBClient = new MemoryDBClient()
+    this.redisService = new RedisService()
 
     this.startPaymentProcessor()
   }
@@ -67,7 +67,7 @@ export class PaymentService {
     if (!successfulPayments.length) return
 
     const dbStartTime = Date.now()
-    await this.memoryDBClient.persistPaymentsBatch(successfulPayments)
+    await this.redisService.persistPaymentsBatch(successfulPayments)
     const dbTime = Date.now() - dbStartTime
 
     const totalTime = Date.now() - batchStartTime
@@ -117,7 +117,7 @@ export class PaymentService {
 
   async getPaymentsSummary(from?: string, to?: string): Promise<PaymentSummary> {
     try {
-      const res = await this.memoryDBClient.getDatabaseSummary(from, to)
+      const res = await this.redisService.getDatabaseSummary(from, to)
 
       const summary: PaymentSummary = {
         default: {
@@ -163,8 +163,8 @@ export class PaymentService {
       results.queue = true
       console.log('Payment queue and stats cleared')
 
-      // Purge MemoryDB
-      await this.memoryDBClient.purgeDatabase()
+      // Purge Redis
+      await this.redisService.purgeDatabase()
       results.database = true
 
       console.log('Complete purge successful')

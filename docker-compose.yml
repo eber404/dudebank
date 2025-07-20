@@ -17,33 +17,30 @@ services:
       - backend
       - payment-processor
     depends_on:
-      - memorydb
+      - redis
     deploy:
       resources:
         limits:
           cpus: "0.6"
-          memory: "120MB"
+          memory: "115MB"
 
   api2:
     <<: *api-service
     ports:
       - "3002:8080"
 
-  memorydb:
-    build:
-      context: .
-      dockerfile: Dockerfile.memorydb
-    volumes:
-      - memorydb_data:/app/data
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 100mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
     networks:
       - backend
-    ports:
-      - "8081:8081"
     deploy:
       resources:
         limits:
           cpus: "0.2"
-          memory: "90MB"
+          memory: "100MB"
 
   nginx:
     image: nginx:alpine
