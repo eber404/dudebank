@@ -1,5 +1,5 @@
 import Redis from 'ioredis'
-import type { ProcessedPayment, PaymentSummary } from '@/types'
+import type { ProcessedPayment, PaymentSummary, ProcessorType } from '@/types'
 
 export class RedisService {
   private redis: Redis
@@ -16,7 +16,7 @@ export class RedisService {
     if (payments.length === 0) return
 
     const pipeline = this.redis.pipeline()
-    
+
     for (const payment of payments) {
       const key = `payment:${payment.correlationId}`
       pipeline.hset(key, {
@@ -26,11 +26,11 @@ export class RedisService {
         requestedAt: payment.requestedAt,
         status: payment.status,
       })
-      
+
       // Add to processor-specific sorted set for quick summary queries
       const scoreKey = `processor:${payment.processor}:payments`
       pipeline.zadd(scoreKey, Date.parse(payment.requestedAt), payment.correlationId)
-      
+
       // Update running totals
       pipeline.hincrbyfloat(`summary:${payment.processor}`, 'totalAmount', payment.amount)
       pipeline.hincrby(`summary:${payment.processor}`, 'totalRequests', 1)
@@ -55,7 +55,7 @@ export class RedisService {
     to?: string
   ): Promise<{ totalRequests: number; totalAmount: number }> {
     const scoreKey = `processor:${processor}:payments`
-    
+
     let paymentIds: string[]
     if (from || to) {
       const fromScore = from ? Date.parse(from) : '-inf'
@@ -82,7 +82,7 @@ export class RedisService {
     for (const id of paymentIds) {
       pipeline.hget(`payment:${id}`, 'amount')
     }
-    
+
     const results = await pipeline.exec()
     let totalAmount = 0
     let totalRequests = 0
@@ -108,6 +108,19 @@ export class RedisService {
     } catch {
       return false
     }
+  }
+
+  async setOptimalProcessor(processorType: ProcessorType): Promise<void> {
+    await this.redis.set('optimal_processor', processorType)
+  }
+
+  async getOptimalProcessor(): Promise<ProcessorType | null> {
+    const result = await this.redis.get('optimal_processor') as ProcessorType | null
+    return result
+  }
+
+  async removeOptimalProcessor(): Promise<void> {
+    await this.redis.del('optimal_processor')
   }
 
   async disconnect(): Promise<void> {

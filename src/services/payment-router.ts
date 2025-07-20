@@ -3,50 +3,68 @@ import type {
   PaymentRequest,
   PaymentProcessor,
   PaymentProcessorRequest,
-  HealthCheckResponse
+  HealthCheckResponse,
+  ProcessorType,
+  ProcessorHealthStatus,
+  ProcessorHealth
 } from '@/types'
+import { RedisService } from './redis-service'
 
 export class PaymentRouter {
-  private processors: PaymentProcessor[]
-  private healthStatus: Map<string, { failing: boolean; minResponseTime: number; lastChecked: number }> = new Map()
-  private healthCheckInterval: NodeJS.Timeout | null = null
-  private optimalProcessor: string = 'default'
-
-  constructor() {
-    this.processors = [
+  private processors: Map<ProcessorType, PaymentProcessor> = new Map<ProcessorType, PaymentProcessor>([
+    [
+      'default',
       {
         url: config.paymentProcessors.default.url,
         type: config.paymentProcessors.default.type
-      },
+      }
+    ],
+    [
+      'fallback',
       {
         url: config.paymentProcessors.fallback.url,
         type: config.paymentProcessors.fallback.type
       }
     ]
+  ])
+  private optimalProcessor: PaymentProcessor = this.processors.get('default')!
+  private healthCheckInterval: NodeJS.Timeout | null = null
+  private optimalProcessorCheckInterval: NodeJS.Timeout | null = null
+  private redisService = new RedisService()
 
+  constructor() {
     if (config.isMainInstance) {
-      this.performHealthChecks()
       this.startHealthChecker()
     }
+    this.startOptimalProcessorChecker()
   }
 
   private startHealthChecker(): void {
-    this.healthCheckInterval = setInterval(async () => {
-      await this.performHealthChecks()
-    }, config.paymentRouter.healthCheckIntervalMs)
+    this.performHealthChecks()
+    this.healthCheckInterval = setInterval(async () => this.performHealthChecks(), config.paymentRouter.healthCheckIntervalMs)
+  }
+
+  async startOptimalProcessorChecker(): Promise<void> {
+    this.optimalProcessorCheckInterval = setInterval(() => this.setOptimalProcessor(), config.paymentRouter.optimalProcessorCheckIntervalMs)
+  }
+
+  async setOptimalProcessor(): Promise<void> {
+    const optimalProcessorType = await this.redisService.getOptimalProcessor()
+    if (!optimalProcessorType) {
+      this.optimalProcessor = this.processors.get('default')!
+      return
+    }
+    this.optimalProcessor = this.processors.get(optimalProcessorType) || this.optimalProcessor
   }
 
   private async performHealthChecks(): Promise<void> {
-    const healthCheckPromises = this.processors.map(processor => this.checkProcessorHealth(processor))
-    await Promise.all(healthCheckPromises)
-
-    const optimalProcessor = this.selectOptimalProcessor()
-    if (optimalProcessor) {
-      this.optimalProcessor = optimalProcessor.type
-    }
+    const healthCheckPromises = Array.from(this.processors.values()).map(processor => this.getProcessorHealth(processor))
+    const healthStatuses = await Promise.all(healthCheckPromises)
+    const optimalProcessor = this.rankOptimalProcessor(healthStatuses)
+    await this.redisService.setOptimalProcessor(optimalProcessor.type)
   }
 
-  private async checkProcessorHealth(processor: PaymentProcessor): Promise<void> {
+  private async getProcessorHealth(processor: PaymentProcessor): Promise<ProcessorHealthStatus> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), config.paymentRouter.healthCheckTimeoutMs)
 
@@ -62,85 +80,56 @@ export class PaymentRouter {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const health = await response.json() as HealthCheckResponse
+      const res = await response.json() as HealthCheckResponse
 
-      this.healthStatus.set(processor.type, {
-        failing: false,
-        minResponseTime: health.minResponseTime,
-        lastChecked: Date.now()
-      })
+      return new Map([
+        [processor.type, {
+          failing: res.failing,
+          minResponseTime: res.minResponseTime,
+          lastChecked: Date.now()
+        }]
+      ])
     } catch (error) {
       clearTimeout(timeoutId)
-
-      this.healthStatus.set(processor.type, {
-        failing: true,
-        minResponseTime: Infinity,
-        lastChecked: Date.now()
-      })
+      return new Map([
+        [processor.type, {
+          failing: true,
+          minResponseTime: Infinity,
+          lastChecked: Date.now()
+        }]
+      ])
     }
   }
 
-  private selectOptimalProcessor(): PaymentProcessor | null {
-    const validProcessors = this.processors.filter(processor => {
-      const health = this.healthStatus.get(processor.type)
-      return health && !health.failing
-    })
-
-    if (validProcessors.length === 0) {
-      return null
-    }
-
-    const defaultProcessor = validProcessors.find(p => p.type === 'default')
-    const fallbackProcessor = validProcessors.find(p => p.type === 'fallback')
-
-    if (!defaultProcessor) {
-      return fallbackProcessor || null
-    }
-
-    if (!fallbackProcessor) {
-      return defaultProcessor
-    }
-
-    const defaultHealth = this.healthStatus.get('default')!
-    const fallbackHealth = this.healthStatus.get('fallback')!
+  private rankOptimalProcessor(healthStatuses: ProcessorHealthStatus[]): PaymentProcessor {
+    const defaultHealth = healthStatuses.find(status => status.has('default'))?.get('default') as ProcessorHealth
+    const fallbackHealth = healthStatuses.find(status => status.has('fallback'))?.get('fallback') as ProcessorHealth
     const speedAdvantageThreshold = config.paymentRouter.fallbackSpeedAdvantageThreshold
-
     const fallbackSpeedAdvantage = (defaultHealth.minResponseTime - fallbackHealth.minResponseTime) / defaultHealth.minResponseTime
 
     if (fallbackSpeedAdvantage > speedAdvantageThreshold) {
-      return fallbackProcessor
-    }
-
-    return defaultProcessor
-  }
-
-  private getOptimalProcessor(): PaymentProcessor {
-    const processor = this.processors.find(p => p.type === this.optimalProcessor)
-    if (processor) {
-      const health = this.healthStatus.get(processor.type)
-      if (health && !health.failing) {
-        return processor
+      return {
+        url: this.processors.get('fallback')!.url,
+        type: 'fallback'
       }
     }
 
-    const optimal = this.selectOptimalProcessor()
-    if (optimal) {
-      return optimal
+    return {
+      url: this.processors.get('default')!.url,
+      type: 'default'
     }
-
-    return this.processors[0]!
   }
 
-  private getAlternativeProcessor(currentProcessor: PaymentProcessor): PaymentProcessor {
-    const alternative = this.processors.find(p => p.type !== currentProcessor.type)
-    return alternative || this.processors[0]!
+  private getAlternativeProcessor(processor: PaymentProcessor): PaymentProcessor {
+    return processor.type === 'default'
+      ? this.processors.get('fallback')!
+      : this.processors.get('default')!
   }
 
   private async makePaymentRequest(
     processor: PaymentProcessor,
     payment: PaymentRequest,
-    signal?: AbortSignal,
-    requestedAt?: string
+    requestedAt: string
   ): Promise<Response> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), config.paymentRouter.requestTimeoutMs)
@@ -158,7 +147,7 @@ export class PaymentRouter {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(paymentData),
-        signal: signal || controller.signal
+        signal: controller.signal
       })
 
       clearTimeout(timeoutId)
@@ -174,19 +163,17 @@ export class PaymentRouter {
     }
   }
 
-  async processPaymentWithRetry(payment: PaymentRequest, requestedAt?: string): Promise<{ response: Response; processor: PaymentProcessor }> {
-    let primaryProcessor = this.getOptimalProcessor()
-
+  async processPaymentWithRetry(payment: PaymentRequest, requestedAt: string): Promise<{ response: Response; processor: PaymentProcessor }> {
+    const processor = this.optimalProcessor
     try {
-      const result = await this.makePaymentRequest(primaryProcessor, payment, undefined, requestedAt)
-      return { response: result, processor: primaryProcessor }
+      const result = await this.makePaymentRequest(processor, payment, requestedAt)
+      return { response: result, processor: processor }
     } catch (error) {
-      console.log(`Primary processor ${primaryProcessor.type} failed:`, error)
-
-      const fallbackProcessor = this.getAlternativeProcessor(primaryProcessor)
+      console.log(`Primary processor ${processor.type} failed:`, error)
+      const fallbackProcessor = this.getAlternativeProcessor(processor)
       try {
-        const result = await this.makePaymentRequest(fallbackProcessor, payment, undefined, requestedAt)
-        this.optimalProcessor = fallbackProcessor.type
+        const result = await this.makePaymentRequest(fallbackProcessor, payment, requestedAt)
+        await this.redisService.setOptimalProcessor(fallbackProcessor.type)
         return { response: result, processor: fallbackProcessor }
       } catch (fallbackError) {
         console.log(`Fallback processor ${fallbackProcessor.type} failed:`, String(fallbackError))
@@ -195,15 +182,16 @@ export class PaymentRouter {
     }
   }
 
-  private async raceProcessors(payment: PaymentRequest, requestedAt?: string): Promise<{ response: Response; processor: PaymentProcessor }> {
+  private async raceProcessors(payment: PaymentRequest, requestedAt: string): Promise<{ response: Response; processor: PaymentProcessor }> {
     const startTime = Date.now()
     const timeoutMs = config.paymentRouter.raceProcessorsTimeoutMs
 
     while (Date.now() - startTime < timeoutMs) {
-      const controllers = this.processors.map(() => new AbortController())
+      const processors = Array.from(this.processors.values())
+      const controllers = processors.map(() => new AbortController())
 
-      const promises = this.processors.map((processor, index) =>
-        this.makePaymentRequest(processor, payment, controllers[index]!.signal, requestedAt)
+      const promises = processors.map((processor) =>
+        this.makePaymentRequest(processor, payment, requestedAt)
           .then(response => ({ response, processor }))
           .catch(error => ({ error, processor }))
       )
@@ -214,7 +202,7 @@ export class PaymentRouter {
 
         for (const result of results) {
           if (result.status === 'fulfilled' && 'response' in result.value) {
-            this.optimalProcessor = result.value.processor.type
+            await this.redisService.setOptimalProcessor(result.value.processor.type)
             return { response: result.value.response, processor: result.value.processor }
           }
         }
@@ -233,6 +221,10 @@ export class PaymentRouter {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval)
       this.healthCheckInterval = null
+    }
+    if (this.optimalProcessorCheckInterval) {
+      clearInterval(this.optimalProcessorCheckInterval)
+      this.optimalProcessorCheckInterval = null
     }
   }
 }
