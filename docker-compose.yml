@@ -26,6 +26,8 @@ services:
 
   api2:
     <<: *api-service
+    environment:
+      - IS_MAIN_INSTANCE=false
     ports:
       - "3002:8080"
 
