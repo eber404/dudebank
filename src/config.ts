@@ -21,13 +21,9 @@ export const config = {
   paymentRouter: {
     healthCheckTimeoutMs: 5000,
     healthCheckIntervalMs: 5000,
-    optimalProcessorCheckIntervalMs: 1000,
-    requestTimeoutMs: 1000,
-    raceProcessorsTimeoutMs: 10_000,
-    fallbackSpeedAdvantageThreshold: 0.10, // 10% speed advantage
-    processorFees: {
-      default: 0.05, // 5%
-      fallback: 0.15, // 15%
-    },
+    optimalProcessorCheckIntervalMs: 5000,
+    redisHealthCheckIntervalMs: 100,
+    requestTimeoutMs: 5000,
+    fallbackSpeedAdvantageThreshold: 3,
   },
 }

@@ -1,5 +1,5 @@
 import Redis from 'ioredis'
-import type { ProcessedPayment, PaymentSummary, ProcessorType } from '@/types'
+import type { ProcessedPayment, PaymentSummary, ProcessorType, ProcessorHealthStatus, ProcessorHealth } from '@/types'
 
 export class RedisService {
   private redis: Redis
@@ -110,17 +110,18 @@ export class RedisService {
     }
   }
 
-  async setOptimalProcessor(processorType: ProcessorType): Promise<void> {
-    await this.redis.set('optimal_processor', processorType)
+  async setProcessorHealth(processor: ProcessorType, health: ProcessorHealth): Promise<void> {
+    console.log(`setting processor health`, {
+      processor,
+      health
+    })
+    await this.redis.set(processor, JSON.stringify(health))
   }
 
-  async getOptimalProcessor(): Promise<ProcessorType | null> {
-    const result = await this.redis.get('optimal_processor') as ProcessorType | null
-    return result
-  }
-
-  async removeOptimalProcessor(): Promise<void> {
-    await this.redis.del('optimal_processor')
+  async getProcessorHealth(processor: ProcessorType): Promise<ProcessorHealth | null> {
+    const result = await this.redis.get(processor)
+    if (!result) return null
+    return JSON.parse(result) as unknown as ProcessorHealth
   }
 
   async disconnect(): Promise<void> {
