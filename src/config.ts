@@ -21,7 +21,7 @@ export const config = {
   paymentRouter: {
     healthCheckTimeoutMs: 5000,
     healthCheckIntervalMs: 5000,
-    requestTimeoutMs: 1000,
+    requestTimeoutMs: 5000,
     raceProcessorsTimeoutMs: 10_000,
     fallbackSpeedAdvantageThreshold: 0.1176,
   },
