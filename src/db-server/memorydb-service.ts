@@ -13,6 +13,11 @@ export class MemoryDBService {
   }
 
   private initDB(): void {
+    // drop
+    this.db.exec('DROP TABLE IF EXISTS payments')
+    this.db.exec('DROP INDEX IF EXISTS idx_requested_at_processor')
+    this.db.exec('DROP INDEX IF EXISTS idx_payments_summary')
+
     // Create payments table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS payments (

@@ -93,6 +93,7 @@ export const memoryDBServer = {
     const server = Bun.serve({
       port,
       fetch: handleRequest,
+      development: false
     })
 
     console.log(`🗄️  MemoryDB Server running on http://localhost:${port}`)
