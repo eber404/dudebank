@@ -1,5 +1,4 @@
 import { PaymentService } from '@/services/payment-service'
-import { PaymentRequestDTO } from '@/http/dtos/payment-request-dto'
 import type { PaymentRequest } from '@/types'
 
 const paymentService = new PaymentService()
@@ -29,9 +28,7 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = await req.json() as PaymentRequest
-      const payment = PaymentRequestDTO.create(paymentInput)
-
-      paymentService.addPayment(payment)
+      paymentService.addPayment(paymentInput)
       return new Response(null, {
         status: 200,
         headers: corsHeaders
