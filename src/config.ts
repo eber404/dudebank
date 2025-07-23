@@ -1,17 +1,21 @@
 export const config = {
-  isMainInstance: Bun.env.IS_MAIN_INSTANCE === 'true',
+  isMainInstance: Bun.env.IS_MAIN_INSTANCE === "true",
   server: {
-    port: parseInt(Bun.env.SERVER_PORT || '8080'),
+    port: parseInt(Bun.env.SERVER_PORT || "8080"),
   },
-  databaseUrl: `${Bun.env.MEMORYDB_HOST || 'http://memorydb'}:${Bun.env.MEMORYDB_PORT || 8081}`,
+  databaseUrl: `${Bun.env.MEMORYDB_HOST || "http://memorydb"}:${Bun.env.MEMORYDB_PORT || 8081}`,
   paymentProcessors: {
     default: {
-      url: Bun.env.PAYMENT_PROCESSOR_URL_DEFAULT || 'http://payment-processor-default:8080',
-      type: 'default' as const,
+      url:
+        Bun.env.PAYMENT_PROCESSOR_URL_DEFAULT ||
+        "http://payment-processor-default:8080",
+      type: "default" as const,
     },
     fallback: {
-      url: Bun.env.PAYMENT_PROCESSOR_URL_FALLBACK || 'http://payment-processor-fallback:8080',
-      type: 'fallback' as const,
+      url:
+        Bun.env.PAYMENT_PROCESSOR_URL_FALLBACK ||
+        "http://payment-processor-fallback:8080",
+      type: "fallback" as const,
     },
   },
   processing: {
@@ -25,4 +29,4 @@ export const config = {
     raceProcessorsTimeoutMs: 10_000,
     fallbackSpeedAdvantageThreshold: 0.1176,
   },
-}
+};

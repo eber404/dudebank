@@ -46,15 +46,18 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 ## 📋 Endpoints
 
 ### Pagamentos
+
 - `POST /payments` - Processar pagamento
 - `GET /payments-summary` - Resumo de pagamentos
 
 ### Administração
+
 - `DELETE /admin/purge` - Limpar banco e cache
 
 ## 🎯 Estratégia
 
 ### Failover Inteligente
+
 - **Processador Ótimo**: Prioriza o processador `default` (menor taxa) mas monitora continuamente o `fallback`
 - **Health Check Distribuído**: Apenas uma instância de API executa health checks para evitar Rate Limiting (HTTP 429)
 - **Decisão Dinâmica**: Troca para `fallback` apenas quando há vantagem significativa de velocidade (>11.76% mais rápido)
@@ -64,6 +67,7 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 ## 🚀 Tecnologias
 
 ### Stack Principal
+
 - **Runtime**: Bun (JavaScript runtime)
 - **Database**: SQLite (Bun built-in)
 - **Validation**: Zod
@@ -73,10 +77,12 @@ Sistema de intermediação de pagamentos desenvolvido para a **Rinha de Backend 
 ## 🛠️ Como Executar
 
 ### Pré-requisitos
+
 - Bun >= 1.0
 - Docker & Docker Compose
 
 ### Desenvolvimento
+
 ```bash
 # Instalar dependências
 bun install
@@ -89,6 +95,7 @@ bun run dev
 ```
 
 ### Testes de Performance
+
 ```bash
 # Testar endpoint de pagamentos
 curl -X POST -H "Content-Type: application/json" \

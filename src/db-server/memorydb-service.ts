@@ -25,7 +25,6 @@ export class MemoryDBService {
         correlation_id TEXT UNIQUE NOT NULL,
         amount REAL NOT NULL,
         processor TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'processed',
         requested_at TEXT NOT NULL,
         processed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -38,15 +37,8 @@ export class MemoryDBService {
       ON payments(requested_at, processor)
     `)
 
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_payments_summary 
-      ON payments(status, processor, amount, requested_at) 
-      WHERE status = 'processed'
-    `)
-
     console.log('SQLite database initialized')
   }
-
 
   private async acquireLock(): Promise<void> {
     if (!this.isLocked) {
@@ -76,21 +68,23 @@ export class MemoryDBService {
     try {
       const stmt = this.db.prepare(`
         INSERT OR IGNORE INTO payments 
-        (correlation_id, amount, processor, requested_at, status) 
-        VALUES (?, ?, ?, ?, ?)
+        (correlation_id, amount, processor, requested_at) 
+        VALUES (?, ?, ?, ?)
       `)
 
-      const transaction = this.db.transaction((payments: ProcessedPayment[]) => {
-        for (const payment of payments) {
-          stmt.run(
-            payment.correlationId,
-            payment.amount,
-            payment.processor,
-            payment.requestedAt,
-            payment.status
-          )
+      const transaction = this.db.transaction(
+        (payments: ProcessedPayment[]) => {
+          for (const payment of payments) {
+            stmt.run(
+              payment.correlationId,
+              payment.amount,
+              payment.processor,
+              payment.requestedAt,
+              payment.status
+            )
+          }
         }
-      })
+      )
 
       transaction(payments)
     } finally {
@@ -98,14 +92,16 @@ export class MemoryDBService {
     }
   }
 
-  async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
+  async getDatabaseSummary(
+    from?: string,
+    to?: string
+  ): Promise<PaymentSummary> {
     let query = `
       SELECT 
         processor,
         COUNT(*) as total_requests,
         SUM(amount) as total_amount
       FROM payments
-      WHERE status = 'processed'
     `
 
     const params: any[] = []
@@ -132,14 +128,14 @@ export class MemoryDBService {
 
     const summary: PaymentSummary = {
       default: { totalRequests: 0, totalAmount: 0 },
-      fallback: { totalRequests: 0, totalAmount: 0 }
+      fallback: { totalRequests: 0, totalAmount: 0 },
     }
 
     for (const row of results) {
       if (row.processor === 'default' || row.processor === 'fallback') {
         summary[row.processor as keyof PaymentSummary] = {
           totalRequests: row.total_requests,
-          totalAmount: row.total_amount
+          totalAmount: row.total_amount,
         }
       }
     }
@@ -147,11 +143,9 @@ export class MemoryDBService {
     return summary
   }
 
-
   async purgeDatabase(): Promise<void> {
     this.db.exec('DELETE FROM payments')
     this.db.exec('DELETE FROM sqlite_sequence WHERE name = "payments"')
     console.log('SQLite database purged successfully')
   }
-
 }
