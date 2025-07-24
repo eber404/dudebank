@@ -79,8 +79,7 @@ export class MemoryDBService {
               payment.correlationId,
               payment.amount,
               payment.processor,
-              payment.requestedAt,
-              payment.status
+              payment.requestedAt
             )
           }
         }
@@ -107,13 +106,13 @@ export class MemoryDBService {
     const params: any[] = []
 
     if (from && to) {
-      query += ` AND requested_at BETWEEN ? AND ?`
+      query += ` WHERE requested_at BETWEEN ? AND ?`
       params.push(from, to)
     } else if (from) {
-      query += ` AND requested_at >= ?`
+      query += ` WHERE requested_at >= ?`
       params.push(from)
     } else if (to) {
-      query += ` AND requested_at <= ?`
+      query += ` WHERE requested_at <= ?`
       params.push(to)
     }
 
