@@ -5,14 +5,12 @@ services:
       target: development
     env_file:
       - .env
-    environment:
-      - IS_MAIN_INSTANCE=true
     volumes:
       - .:/app
       - memorydb_data:/app/data
     ports:
-      - "3001:8080"
-    command: ["bun", "run", "dev"]
+      - '3001:8080'
+    command: ['bun', 'run', 'dev']
     networks:
       - backend
       - payment-processor
@@ -21,13 +19,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.6"
-          memory: "120MB"
+          cpus: '0.6'
+          memory: '120MB'
 
   api2:
     <<: *api-service
     ports:
-      - "3002:8080"
+      - '3002:8080'
 
   memorydb:
     build:
@@ -38,12 +36,12 @@ services:
     networks:
       - backend
     ports:
-      - "8081:8081"
+      - '8081:8081'
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: "90MB"
+          cpus: '0.2'
+          memory: '90MB'
 
   nginx:
     image: nginx:alpine
@@ -57,12 +55,12 @@ services:
     networks:
       - backend
     ports:
-      - "9999:80"
+      - '9999:80'
     deploy:
       resources:
         limits:
-          cpus: "0.1"
-          memory: "20MB"
+          cpus: '0.1'
+          memory: '20MB'
 
 networks:
   backend:
