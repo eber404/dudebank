@@ -1,15 +1,17 @@
 import { Database } from 'bun:sqlite'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+import { config } from '@/config'
 
 export class MemoryDBService {
   private db: Database
-  private lockQueue: (() => void)[] = []
-  private isLocked: boolean = false
+  private persistQueue: Map<string, ProcessedPayment> = new Map()
+  private isProcessingBatch = false
 
   constructor() {
     const dbPath = Bun.env.DATABASE_PATH || '/app/data/payments.db'
     this.db = new Database(dbPath)
     this.initDB()
+    this.startPersistProcessor()
   }
 
   private initDB(): void {
@@ -40,55 +42,72 @@ export class MemoryDBService {
     console.log('SQLite database initialized')
   }
 
-  private async acquireLock(): Promise<void> {
-    if (!this.isLocked) {
-      this.isLocked = true
-      return Promise.resolve()
-    }
-
-    return new Promise<void>((resolve) => {
-      this.lockQueue.push(resolve)
-    })
+  private startPersistProcessor(): void {
+    setInterval(async () => {
+      if (this.isProcessingBatch || !this.persistQueue.size) {
+        this.persistQueue.size &&
+          console.log(`Persist queue size: ${this.persistQueue.size}`)
+        return
+      }
+      this.isProcessingBatch = true
+      try {
+        const batch = this.extractBatch()
+        if (!batch.length) return
+        await this.persistBatch(batch)
+      } finally {
+        this.isProcessingBatch = false
+      }
+    }, config.processing.batchIntervalMs)
   }
 
-  private releaseLock(): void {
-    if (this.lockQueue.length > 0) {
-      const nextResolve = this.lockQueue.shift()!
-      nextResolve()
-    } else {
-      this.isLocked = false
+  private extractBatch(): ProcessedPayment[] {
+    const batch: ProcessedPayment[] = []
+    const entries = Array.from(this.persistQueue.entries()).slice(
+      0,
+      config.processing.batchSize
+    )
+
+    for (const entry of entries) {
+      if (!entry) continue
+      const [correlationId, payment] = entry
+      batch.push(payment)
+      this.persistQueue.delete(correlationId)
+    }
+
+    return batch
+  }
+
+  private async persistBatch(payments: ProcessedPayment[]): Promise<void> {
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO payments 
+      (correlation_id, amount, processor, requested_at) 
+      VALUES (?, ?, ?, ?)
+    `)
+
+    const transaction = this.db.transaction((payments: ProcessedPayment[]) => {
+      for (const payment of payments) {
+        stmt.run(
+          payment.correlationId,
+          payment.amount,
+          payment.processor,
+          payment.requestedAt
+        )
+      }
+    })
+
+    transaction(payments)
+    console.log(`Persisted batch: ${payments.length} payments`)
+  }
+
+  addPaymentsToPersistQueue(payments: ProcessedPayment[]): void {
+    for (const payment of payments) {
+      this.persistQueue.set(payment.correlationId, payment)
     }
   }
 
   async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
-    if (payments.length === 0) return
-
-    await this.acquireLock()
-
-    try {
-      const stmt = this.db.prepare(`
-        INSERT OR IGNORE INTO payments 
-        (correlation_id, amount, processor, requested_at) 
-        VALUES (?, ?, ?, ?)
-      `)
-
-      const transaction = this.db.transaction(
-        (payments: ProcessedPayment[]) => {
-          for (const payment of payments) {
-            stmt.run(
-              payment.correlationId,
-              payment.amount,
-              payment.processor,
-              payment.requestedAt
-            )
-          }
-        }
-      )
-
-      transaction(payments)
-    } finally {
-      this.releaseLock()
-    }
+    if (!payments.length) return
+    this.addPaymentsToPersistQueue(payments)
   }
 
   async getDatabaseSummary(

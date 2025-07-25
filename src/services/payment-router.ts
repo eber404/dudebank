@@ -3,7 +3,6 @@ import type {
   PaymentRequest,
   PaymentProcessor,
   PaymentProcessorRequest,
-  HealthCheckResponse,
   ProcessorType,
 } from '@/types'
 
@@ -67,31 +66,30 @@ export class PaymentRouter {
 
   async processPaymentWithRetry(
     payment: PaymentRequest,
-    requestedAt: string
+    requestedAt: string,
+    processor = this.processors.get('default')!
   ): Promise<{ response: Response; processor: PaymentProcessor }> {
     try {
-      const processor = this.processors.get('default')!
-      const result = await this.makePaymentRequest(
+      const response = await this.makePaymentRequest(
         payment,
         requestedAt,
         processor
       )
-      return { response: result, processor }
+      return { response, processor }
     } catch (error) {
-      console.log(`Default processor failed:`, error)
+      const alternativeProcessor =
+        processor.type === 'default'
+          ? this.processors.get('fallback')!
+          : this.processors.get('default')!
 
-      try {
-        const processor = this.processors.get('fallback')!
-        const result = await this.makePaymentRequest(
-          payment,
-          requestedAt,
-          processor
-        )
-        return { response: result, processor }
-      } catch (fallbackError) {
-        console.log(`Fallback processor failed:`, String(fallbackError))
-        return await this.processPaymentWithRetry(payment, requestedAt)
-      }
+      // console.log(
+      //   `${processor.type} processor failed. Retrying with ${alternativeProcessor.type}...`
+      // )
+      return this.processPaymentWithRetry(
+        payment,
+        requestedAt,
+        alternativeProcessor
+      )
     }
   }
 }

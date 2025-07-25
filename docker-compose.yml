@@ -32,7 +32,9 @@ services:
       context: .
       dockerfile: Dockerfile.memorydb
     volumes:
+      - .:/app
       - memorydb_data:/app/data
+    command: ['bun', '--watch', 'run', 'src/db-server/index.ts']
     networks:
       - backend
     ports:

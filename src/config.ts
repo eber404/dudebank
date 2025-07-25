@@ -21,13 +21,9 @@ export const config = {
   },
   processing: {
     batchSize: 100,
-    batchIntervalMs: 5,
+    batchIntervalMs: 1,
   },
   paymentRouter: {
-    healthCheckTimeoutMs: 5000,
-    healthCheckIntervalMs: 5000,
     requestTimeoutMs: 5000,
-    raceProcessorsTimeoutMs: 10_000,
-    fallbackSpeedAdvantageThreshold: 0.1176,
   },
 }
