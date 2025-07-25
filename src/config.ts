@@ -19,9 +19,13 @@ export const config = {
       type: 'fallback' as const,
     },
   },
+  database: {
+    batchSize: 100,
+    batchIntervalMs: 100,
+  },
   processing: {
     batchSize: 100,
-    batchIntervalMs: 1,
+    batchIntervalMs: 100,
   },
   paymentRouter: {
     requestTimeoutMs: 5000,

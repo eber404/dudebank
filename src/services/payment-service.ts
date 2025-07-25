@@ -16,6 +16,7 @@ export class PaymentService {
   private memoryDBClient: MemoryDBClient
   private paymentQueue: Map<string, PaymentRequest> = new Map()
   private isProcessingBatch = false
+  private isReadingSummary = false
 
   constructor() {
     this.paymentRouter = new PaymentRouter()
@@ -26,7 +27,11 @@ export class PaymentService {
 
   private startPaymentProcessor(): void {
     setInterval(async () => {
-      if (this.isProcessingBatch || !this.paymentQueue.size) {
+      if (
+        this.isProcessingBatch ||
+        !this.paymentQueue.size ||
+        this.isReadingSummary
+      ) {
         this.paymentQueue.size &&
           console.log(`Queue size: ${this.paymentQueue.size}`)
 
@@ -119,6 +124,7 @@ export class PaymentService {
     to?: string
   ): Promise<PaymentSummary> {
     try {
+      this.isReadingSummary = true
       const res = await this.memoryDBClient.getDatabaseSummary(from, to)
 
       const summary: PaymentSummary = {
@@ -141,6 +147,8 @@ export class PaymentService {
         default: { totalRequests: 0, totalAmount: 0 },
         fallback: { totalRequests: 0, totalAmount: 0 },
       }
+    } finally {
+      this.isReadingSummary = false
     }
   }
 

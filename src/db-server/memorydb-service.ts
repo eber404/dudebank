@@ -6,6 +6,7 @@ export class MemoryDBService {
   private db: Database
   private persistQueue: Map<string, ProcessedPayment> = new Map()
   private isProcessingBatch = false
+  private isReadingSummary = false
 
   constructor() {
     const dbPath = Bun.env.DATABASE_PATH || '/app/data/payments.db'
@@ -44,7 +45,11 @@ export class MemoryDBService {
 
   private startPersistProcessor(): void {
     setInterval(async () => {
-      if (this.isProcessingBatch || !this.persistQueue.size) {
+      if (
+        this.isProcessingBatch ||
+        !this.persistQueue.size ||
+        this.isReadingSummary
+      ) {
         this.persistQueue.size &&
           console.log(`Persist queue size: ${this.persistQueue.size}`)
         return
@@ -57,14 +62,14 @@ export class MemoryDBService {
       } finally {
         this.isProcessingBatch = false
       }
-    }, config.processing.batchIntervalMs)
+    }, config.database.batchIntervalMs)
   }
 
   private extractBatch(): ProcessedPayment[] {
     const batch: ProcessedPayment[] = []
     const entries = Array.from(this.persistQueue.entries()).slice(
       0,
-      config.processing.batchSize
+      config.database.batchSize
     )
 
     for (const entry of entries) {
@@ -114,6 +119,8 @@ export class MemoryDBService {
     from?: string,
     to?: string
   ): Promise<PaymentSummary> {
+    this.isReadingSummary = true
+
     let query = `
       SELECT 
         processor,
@@ -158,6 +165,7 @@ export class MemoryDBService {
       }
     }
 
+    this.isReadingSummary = false
     return summary
   }
 
