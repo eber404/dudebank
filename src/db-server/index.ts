@@ -1,5 +1,6 @@
 import { DatabaseService } from '@/db-server/database-service'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+import { unlink } from 'fs/promises'
 
 const memoryDB = new DatabaseService()
 
@@ -94,14 +95,20 @@ async function handleRequest(req: Request): Promise<Response> {
 }
 
 export const memoryDBServer = {
-  async listen(port: number = 8081) {
+  async listen(socketPath: string = '/tmp/memorydb.sock') {
+    try {
+      await unlink(socketPath)
+    } catch (error) {
+      // Socket file doesn't exist, ignore
+    }
+
     const server = Bun.serve({
-      port,
+      unix: socketPath,
       fetch: handleRequest,
       development: false,
     })
 
-    console.log(`🗄️  MemoryDB Server running on http://localhost:${port}`)
+    console.log(`🗄️  MemoryDB Server running on unix socket: ${socketPath}`)
     return server
   },
 }
@@ -109,6 +116,6 @@ export const memoryDBServer = {
 // Start server if this file is run directly
 if (import.meta.main) {
   memoryDBServer.listen(
-    Bun.env.MEMORYDB_PORT ? Number(Bun.env.MEMORYDB_PORT) : 8081
+    Bun.env.MEMORYDB_SOCKET_PATH || '/tmp/memorydb.sock'
   )
 }

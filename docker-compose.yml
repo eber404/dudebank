@@ -7,7 +7,7 @@ services:
       - .env
     volumes:
       - .:/app
-      - memorydb_data:/app/data
+      - socket_data:/tmp
     ports:
       - '3001:8080'
     command: ['bun', 'run', 'dev']
@@ -33,12 +33,8 @@ services:
       dockerfile: Dockerfile.memorydb
     volumes:
       - .:/app
-      - memorydb_data:/app/data
+      - socket_data:/tmp
     command: ['bun', '--watch', 'run', 'src/db-server/index.ts']
-    networks:
-      - backend
-    ports:
-      - '8081:8081'
     deploy:
       resources:
         limits:
@@ -71,4 +67,4 @@ networks:
     external: true
 
 volumes:
-  memorydb_data:
+  socket_data:

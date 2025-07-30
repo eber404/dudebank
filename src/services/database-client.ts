@@ -2,21 +2,22 @@ import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
 
 export class DatabaseClient {
-  private readonly baseUrl: string
+  private readonly socketPath: string
 
   constructor() {
-    this.baseUrl = config.databaseUrl
+    this.socketPath = config.databaseSocketPath
   }
 
   async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
     if (!payments.length) return
 
-    const response = await fetch(`${this.baseUrl}/payments/batch`, {
+    const response = await fetch('http://localhost/payments/batch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payments),
+      unix: this.socketPath,
     })
 
     if (!response.ok) {
@@ -34,10 +35,12 @@ export class DatabaseClient {
     if (from) params.set('from', from)
     if (to) params.set('to', to)
 
-    const url = `${this.baseUrl}/payments-summary${
+    const url = `http://localhost/payments-summary${
       params.toString() ? '?' + params.toString() : ''
     }`
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      unix: this.socketPath,
+    })
 
     if (!response.ok) {
       throw new Error(`Failed to get database summary: ${response.statusText}`)
@@ -47,8 +50,9 @@ export class DatabaseClient {
   }
 
   async purgeDatabase(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/admin/purge`, {
+    const response = await fetch('http://localhost/admin/purge', {
       method: 'DELETE',
+      unix: this.socketPath,
     })
 
     if (!response.ok) {

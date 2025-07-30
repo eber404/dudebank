@@ -2,9 +2,7 @@ export const config = {
   server: {
     port: parseInt(Bun.env.SERVER_PORT || '8080'),
   },
-  databaseUrl: `${Bun.env.MEMORYDB_HOST || 'http://memorydb'}:${
-    Bun.env.MEMORYDB_PORT || 8081
-  }`,
+  databaseSocketPath: Bun.env.MEMORYDB_SOCKET_PATH || '/tmp/memorydb.sock',
   paymentProcessors: {
     default: {
       url:
