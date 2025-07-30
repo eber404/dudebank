@@ -9,60 +9,24 @@ import type {
 } from '@/types'
 
 import { PaymentRouter } from './payment-router'
-import { MemoryDBClient } from './memorydb-client'
+import { DatabaseClient } from './database-client'
+import { BatchProcessor } from './batch-processor'
 
 export class PaymentService {
   private paymentRouter: PaymentRouter
-  private memoryDBClient: MemoryDBClient
-  private paymentQueue: Map<string, PaymentRequest> = new Map()
-  private isProcessingBatch = false
-  private isReadingSummary = false
+  private memoryDBClient: DatabaseClient
+  private batchProcessorService: BatchProcessor
 
   constructor() {
     this.paymentRouter = new PaymentRouter()
-    this.memoryDBClient = new MemoryDBClient()
-
-    this.startPaymentProcessor()
-  }
-
-  private startPaymentProcessor(): void {
-    setInterval(async () => {
-      if (
-        this.isProcessingBatch ||
-        !this.paymentQueue.size ||
-        this.isReadingSummary
-      ) {
-        this.paymentQueue.size &&
-          console.log(`Queue size: ${this.paymentQueue.size}`)
-
-        return
-      }
-      this.isProcessingBatch = true
-      try {
-        const batch = this.extractBatch()
-        if (!batch.length) return
-        await this.processBatch(batch)
-      } finally {
-        this.isProcessingBatch = false
-      }
-    }, config.processing.batchIntervalMs)
-  }
-
-  private extractBatch(): PaymentRequest[] {
-    const batch: PaymentRequest[] = []
-    const entries = Array.from(this.paymentQueue.entries()).slice(
-      0,
-      config.processing.batchSize
-    )
-
-    for (const entry of entries) {
-      if (!entry) continue
-      const [correlationId, payment] = entry
-      batch.push(payment)
-      this.paymentQueue.delete(correlationId)
-    }
-
-    return batch
+    this.memoryDBClient = new DatabaseClient()
+    this.batchProcessorService = new BatchProcessor({
+      batchSize: config.processing.batchSize,
+      intervalMs: config.processing.batchIntervalMs,
+    })
+    this.batchProcessorService.startBatchProcessor<PaymentRequest>({
+      onProcess: this.processBatch.bind(this),
+    })
   }
 
   private async processBatch(payments: PaymentRequest[]): Promise<void> {
@@ -81,7 +45,7 @@ export class PaymentService {
     await this.memoryDBClient.persistPaymentsBatch(successfulPayments)
 
     console.log(
-      `Batch processed: ${successfulPayments.length}/${payments.length} Queue: ${this.paymentQueue.size}`
+      `Batch processed: ${successfulPayments.length}/${payments.length}`
     )
   }
 
@@ -115,16 +79,11 @@ export class PaymentService {
     }
   }
 
-  addPayment(payment: PaymentRequest): void {
-    this.paymentQueue.set(payment.correlationId, payment)
-  }
-
   async getPaymentsSummary(
     from?: string,
     to?: string
   ): Promise<PaymentSummary> {
     try {
-      this.isReadingSummary = true
       const res = await this.memoryDBClient.getDatabaseSummary(from, to)
 
       const summary: PaymentSummary = {
@@ -147,9 +106,11 @@ export class PaymentService {
         default: { totalRequests: 0, totalAmount: 0 },
         fallback: { totalRequests: 0, totalAmount: 0 },
       }
-    } finally {
-      this.isReadingSummary = false
     }
+  }
+
+  addPayment(payment: PaymentRequest): void {
+    this.batchProcessorService.addToQueue(payment.correlationId, payment)
   }
 
   private roundToComercialAmount(amount: number): number {
@@ -165,13 +126,7 @@ export class PaymentService {
     }
 
     try {
-      // Wait for any ongoing batch processing to complete
-      while (this.isProcessingBatch) {
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-
       // Clear processing queue and reset stats atomically
-      this.paymentQueue.clear()
       results.queue = true
       console.log('Payment queue and stats cleared')
 

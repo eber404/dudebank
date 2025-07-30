@@ -1,7 +1,7 @@
 import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
 
-export class MemoryDBClient {
+export class DatabaseClient {
   private readonly baseUrl: string
 
   constructor() {

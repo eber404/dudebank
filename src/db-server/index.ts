@@ -1,7 +1,7 @@
-import { MemoryDBService } from '@/db-server/memorydb-service'
+import { DatabaseService } from '@/db-server/database-service'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
 
-const memoryDB = new MemoryDBService()
+const memoryDB = new DatabaseService()
 
 async function handleRequest(req: Request): Promise<Response> {
   const url = new URL(req.url)
@@ -23,7 +23,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // POST /payments/batch - Insert batch of payments
     if (method === 'POST' && pathname === '/payments/batch') {
       const payments = (await req.json()) as ProcessedPayment[]
-      await memoryDB.persistPaymentsBatch(payments)
+      await memoryDB.persistPayments(payments)
       return new Response(`${payments.length} payments stored`, {
         status: 200,
         headers: corsHeaders,

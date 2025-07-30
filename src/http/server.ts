@@ -1,83 +1,82 @@
-import { PaymentService } from "@/services/payment-service";
-import { PaymentRequestDTO } from "@/http/dtos/payment-request-dto";
-import type { PaymentRequest } from "@/types";
+import { PaymentService } from '@/services/payment-service'
+import type { PaymentRequest } from '@/types'
 
-const paymentService = new PaymentService();
+const paymentService = new PaymentService()
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
 
 const jsonHeaders = {
-  "Content-Type": "application/json",
+  'Content-Type': 'application/json',
   ...corsHeaders,
-};
+}
+
+const HTTP_STATUS_200 = new Response(null, {
+  status: 200,
+  headers: corsHeaders,
+})
 
 async function handleRequest(req: Request): Promise<Response> {
-  const { method, url } = req;
-  const { pathname, searchParams } = new URL(url);
+  const { method, url } = req
+  const { pathname, searchParams } = new URL(url)
 
-  if (method === "OPTIONS") {
+  if (method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
-    });
+    })
   }
 
   try {
-    if (method === "POST" && pathname === "/payments") {
-      const paymentInput = (await req.json()) as PaymentRequest;
-      const payment = PaymentRequestDTO.create(paymentInput);
-
-      paymentService.addPayment(payment);
-      return new Response(null, {
-        status: 200,
-        headers: corsHeaders,
-      });
+    if (method === 'POST' && pathname === '/payments') {
+      const paymentInput = (await req.json()) as PaymentRequest
+      paymentService.addPayment(paymentInput)
+      return HTTP_STATUS_200
     }
 
-    if (method === "GET" && pathname === "/payments-summary") {
-      const from = searchParams.get("from") || undefined;
-      const to = searchParams.get("to") || undefined;
-      const summary = await paymentService.getPaymentsSummary(from, to);
+    if (method === 'GET' && pathname === '/payments-summary') {
+      const from = searchParams.get('from') || undefined
+      const to = searchParams.get('to') || undefined
+      const summary = await paymentService.getPaymentsSummary(from, to)
 
       return new Response(JSON.stringify(summary), {
         status: 200,
         headers: jsonHeaders,
-      });
+      })
     }
 
-    if (method === "DELETE" && pathname === "/admin/purge") {
-      const results = await paymentService.purgeAll();
+    if (method === 'DELETE' && pathname === '/admin/purge') {
+      const results = await paymentService.purgeAll()
       const response = {
-        message: "Purge operation completed",
+        message: 'Purge operation completed',
         results,
         timestamp: new Date().toISOString(),
-      };
+      }
 
       return new Response(JSON.stringify(response), {
         status: 200,
         headers: jsonHeaders,
-      });
+      })
     }
 
-    return new Response("Not Found", {
+    return new Response('Not Found', {
       status: 404,
       headers: corsHeaders,
-    });
+    })
   } catch (error: any) {
-    console.error("Request handling error:", error);
+    console.error('Request handling error:', error)
     return new Response(
       JSON.stringify({
-        error: "Internal Server Error",
+        error: 'Internal Server Error',
       }),
       {
         status: error.status || 500,
         headers: jsonHeaders,
-      },
-    );
+      }
+    )
   }
 }
 
@@ -87,11 +86,11 @@ export const httpServer = {
       port,
       fetch: handleRequest,
       development: false,
-    });
+    })
 
     console.log(
-      `🚀 [${Bun.env.HOSTNAME}] Server running on http://localhost:${port}`,
-    );
-    return server;
+      `🚀 [${Bun.env.HOSTNAME}] Server running on http://localhost:${port}`
+    )
+    return server
   },
-};
+}
