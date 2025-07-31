@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { Mutex } from 'async-mutex'
+
 import type { ProcessedPayment, PaymentSummary } from '@/types'
 
 export class DatabaseService {
@@ -10,7 +11,16 @@ export class DatabaseService {
   private insertStmt: any
 
   constructor() {
-    this.db = new Database(Bun.env.DATABASE_PATH ?? '/app/data/payments.db')
+    const dbPath = Bun.env.DATABASE_PATH ?? '/app/data/payments.db'
+    // Ensure directory exists with correct permissions
+    const fs = require('fs')
+    const path = require('path')
+    const dbDir = path.dirname(dbPath)
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true, mode: 0o755 })
+    }
+    
+    this.db = new Database(dbPath)
     this.mutationMutex = new Mutex()
     this.queryMutex = new Mutex()
     this.initDB()
@@ -70,10 +80,7 @@ export class DatabaseService {
     }, this.mutationPriority)
   }
 
-  async getDatabaseSummary(
-    from?: string,
-    to?: string
-  ): Promise<PaymentSummary> {
+  async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
     return this.queryMutex.runExclusive(async () => {
       let query = `
       SELECT 

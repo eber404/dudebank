@@ -1,6 +1,7 @@
+import { unlink } from 'fs/promises'
+
 import { DatabaseService } from '@/db-server/database-service'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
-import { unlink } from 'fs/promises'
 
 const memoryDB = new DatabaseService()
 
@@ -115,7 +116,5 @@ export const memoryDBServer = {
 
 // Start server if this file is run directly
 if (import.meta.main) {
-  memoryDBServer.listen(
-    Bun.env.MEMORYDB_SOCKET_PATH || '/tmp/memorydb.sock'
-  )
+  memoryDBServer.listen(Bun.env.MEMORYDB_SOCKET_PATH || '/tmp/memorydb.sock')
 }

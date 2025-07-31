@@ -1,7 +1,6 @@
-import { PaymentService } from '@/services/payment-service'
 import type { PaymentRequest } from '@/types'
 
-const paymentService = new PaymentService()
+import { paymentProcessor, paymentWorker, queue } from '@/di-container'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,11 +12,6 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
   ...corsHeaders,
 }
-
-const HTTP_STATUS_200 = new Response(null, {
-  status: 200,
-  headers: corsHeaders,
-})
 
 async function handleRequest(req: Request): Promise<Response> {
   const { method, url } = req
@@ -33,14 +27,18 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
-      paymentService.addPayment(paymentInput)
-      return HTTP_STATUS_200
+      queue.enqueue(paymentInput)
+      paymentWorker.postMessage('')
+      return new Response(null, {
+        status: 200,
+        headers: corsHeaders,
+      })
     }
 
     if (method === 'GET' && pathname === '/payments-summary') {
       const from = searchParams.get('from') || undefined
       const to = searchParams.get('to') || undefined
-      const summary = await paymentService.getPaymentsSummary(from, to)
+      const summary = await paymentProcessor.getPaymentsSummary(from, to)
 
       return new Response(JSON.stringify(summary), {
         status: 200,
@@ -49,7 +47,7 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     if (method === 'DELETE' && pathname === '/admin/purge') {
-      const results = await paymentService.purgeAll()
+      const results = paymentProcessor.purgeAll()
       const response = {
         message: 'Purge operation completed',
         results,

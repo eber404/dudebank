@@ -1,5 +1,6 @@
 services:
   api1: &api-service
+    container_name: api1
     build:
       context: .
       target: development
@@ -24,10 +25,12 @@ services:
 
   api2:
     <<: *api-service
+    container_name: api2
     ports:
       - '3002:8080'
 
   memorydb:
+    container_name: memorydb
     build:
       context: .
       dockerfile: Dockerfile.memorydb
@@ -42,6 +45,7 @@ services:
           memory: '90MB'
 
   nginx:
+    container_name: nginx
     image: nginx:alpine
     env_file:
       - .env
