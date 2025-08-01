@@ -28,17 +28,6 @@ export interface ProcessedPayment {
   requestedAt: string
 }
 
-export interface HealthCheckResponse {
-  failing: boolean
-  minResponseTime: number
-}
-
-export interface ProcessorHealth {
-  failing: boolean
-  minResponseTime: number
-  lastChecked: number
-}
-export type ProcessorHealthStatus = Map<ProcessorType, ProcessorHealth>
 
 export interface PaymentProcessorRequest {
   correlationId: string

@@ -14,25 +14,6 @@ export class PaymentProcessor {
     this.memoryDBClient = new DatabaseClient()
   }
 
-  async processPayment(payment: PaymentRequest): Promise<ProcessedPayment> {
-    const requestedAt = new Date().toISOString()
-    const result = await this.paymentRouter.processPaymentWithRetry(
-      payment,
-      requestedAt
-    )
-
-    const processedPayment = {
-      correlationId: payment.correlationId,
-      amount: payment.amount,
-      processor: result.processor,
-      requestedAt,
-    }
-
-    await this.memoryDBClient.persistPaymentsBatch([processedPayment])
-
-    return processedPayment
-  }
-
   async processPaymentBatch(
     payments: PaymentRequest[]
   ): Promise<ProcessedPayment[]> {
