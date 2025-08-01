@@ -33,6 +33,32 @@ export class PaymentProcessor {
     return processedPayment
   }
 
+  async processPaymentBatch(
+    payments: PaymentRequest[]
+  ): Promise<ProcessedPayment[]> {
+    const requestedAt = new Date().toISOString()
+
+    const processedPayments = await Promise.all(
+      payments.map(async (payment) => {
+        const result = await this.paymentRouter.processPaymentWithRetry(
+          payment,
+          requestedAt
+        )
+
+        return {
+          correlationId: payment.correlationId,
+          amount: payment.amount,
+          processor: result.processor,
+          requestedAt,
+        }
+      })
+    )
+
+    await this.memoryDBClient.persistPaymentsBatch(processedPayments)
+
+    return processedPayments
+  }
+
   async getPaymentsSummary(
     from?: string,
     to?: string
@@ -59,17 +85,8 @@ export class PaymentProcessor {
       .toNumber()
   }
 
-  async purgeAll(): Promise<{ database: boolean; queue: boolean }> {
-    const results = {
-      database: false,
-      queue: false,
-    }
-
-    results.queue = true
-    console.log('Payment queue and stats cleared')
+  async purgeAll(): Promise<void> {
     await this.memoryDBClient.purgeDatabase()
-    results.database = true
     console.log('Complete purge successful')
-    return results
   }
 }

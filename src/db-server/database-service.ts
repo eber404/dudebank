@@ -19,7 +19,7 @@ export class DatabaseService {
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true, mode: 0o755 })
     }
-    
+
     this.db = new Database(dbPath)
     this.mutationMutex = new Mutex()
     this.queryMutex = new Mutex()
@@ -62,6 +62,8 @@ export class DatabaseService {
   }
 
   async persistPayments(payments: ProcessedPayment[]): Promise<void> {
+    if (!payments.length) return
+
     await this.mutationMutex.runExclusive(async () => {
       const transaction = this.db.transaction(() => {
         for (const payment of payments) {
@@ -75,12 +77,15 @@ export class DatabaseService {
       })
 
       transaction()
-      console.log(`Persisted batch: ${payments.length} payments`)
+      console.log(`Persisted batch of ${payments.length} payments`)
       this.mutationPriority++
     }, this.mutationPriority)
   }
 
-  async getDatabaseSummary(from?: string, to?: string): Promise<PaymentSummary> {
+  async getDatabaseSummary(
+    from?: string,
+    to?: string
+  ): Promise<PaymentSummary> {
     return this.queryMutex.runExclusive(async () => {
       let query = `
       SELECT 

@@ -1,37 +1,17 @@
 import type { PaymentRequest } from '@/types'
 
-import { paymentProcessor, paymentWorker, queue } from '@/di-container'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
-
-const jsonHeaders = {
-  'Content-Type': 'application/json',
-  ...corsHeaders,
-}
+import { paymentProcessor, paymentWorker } from '@/di-container'
 
 async function handleRequest(req: Request): Promise<Response> {
   const { method, url } = req
   const { pathname, searchParams } = new URL(url)
 
-  if (method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    })
-  }
-
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
-      queue.enqueue(paymentInput)
-      paymentWorker.postMessage('')
+      paymentWorker.postMessage(paymentInput)
       return new Response(null, {
         status: 200,
-        headers: corsHeaders,
       })
     }
 
@@ -39,10 +19,8 @@ async function handleRequest(req: Request): Promise<Response> {
       const from = searchParams.get('from') || undefined
       const to = searchParams.get('to') || undefined
       const summary = await paymentProcessor.getPaymentsSummary(from, to)
-
       return new Response(JSON.stringify(summary), {
         status: 200,
-        headers: jsonHeaders,
       })
     }
 
@@ -56,13 +34,11 @@ async function handleRequest(req: Request): Promise<Response> {
 
       return new Response(JSON.stringify(response), {
         status: 200,
-        headers: jsonHeaders,
       })
     }
 
     return new Response('Not Found', {
       status: 404,
-      headers: corsHeaders,
     })
   } catch (error: any) {
     console.error('Request handling error:', error)
@@ -72,7 +48,6 @@ async function handleRequest(req: Request): Promise<Response> {
       }),
       {
         status: error.status || 500,
-        headers: jsonHeaders,
       }
     )
   }
