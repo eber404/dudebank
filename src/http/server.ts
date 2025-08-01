@@ -54,15 +54,22 @@ async function handleRequest(req: Request): Promise<Response> {
 }
 
 export const httpServer = {
-  async listen(port: number = 3000) {
+  async listen(socketPath: string) {
     const server = Bun.serve({
-      port,
+      unix: socketPath,
       fetch: handleRequest,
       development: false,
     })
 
+    // Set socket permissions so nginx can access it
+    try {
+      await Bun.spawn(['chmod', '666', socketPath]).exited
+    } catch (error) {
+      console.warn('Failed to set socket permissions:', error)
+    }
+
     console.log(
-      `🚀 [${Bun.env.HOSTNAME}] Server running on http://localhost:${port}`
+      `🚀 [${Bun.env.HOSTNAME}] Server running on unix socket: ${socketPath}`
     )
     return server
   },
