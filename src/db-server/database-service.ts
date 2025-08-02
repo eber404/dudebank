@@ -19,23 +19,13 @@ export class DatabaseService {
 
   getDatabaseSummary(from?: string, to?: string) {
     const allData = this.memoryStore.getAll()
-    console.log(`------------- getDatabaseSummary -------------`)
-    console.log(`Total items in memory: ${allData.length}`)
-    console.log({ lastItem: allData[allData.length - 1] })
 
     const fromTimestamp = from ? Date.parse(from) : 0
     const toTimestamp = to ? Date.parse(to) : Date.now()
-    console.log(`Filter range: ${fromTimestamp} to ${toTimestamp}`)
-    console.log(
-      `Filter range as dates: ${new Date(
-        fromTimestamp
-      ).toISOString()} to ${new Date(toTimestamp).toISOString()}`
-    )
 
     const filteredData = allData.filter(
       (item) => item.timestamp >= fromTimestamp && item.timestamp <= toTimestamp
     )
-    console.log(`Filtered items: ${filteredData.length}`)
 
     const summary: PaymentSummary = {
       default: { totalRequests: 0, totalAmount: 0 },

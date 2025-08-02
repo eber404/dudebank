@@ -34,6 +34,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.memorydb
+    env_file:
+      - .env
     volumes:
       - .:/app
       - socket_data:/tmp

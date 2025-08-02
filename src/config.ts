@@ -19,9 +19,13 @@ export const config = {
     },
   },
   paymentWorker: {
-    batchSize: 500,
+    batchSize: 50,
   },
   paymentRouter: {
-    requestTimeoutMs: 5000,
+    requestTimeoutMs: 3000,
+  },
+  databaseClient: {
+    batchSize: 50,
+    batchTimeoutMs: 8,
   },
 }

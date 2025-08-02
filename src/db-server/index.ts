@@ -15,26 +15,19 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   try {
-    // POST /payments/batch - Insert batch of payments
     if (method === 'POST' && pathname === '/payments/batch') {
       const payments = (await req.json()) as ProcessedPayment[]
       memoryDB.persistPayments(payments)
-      return new Response(null, {
-        status: 200,
-      })
+      return new Response(null, { status: 200 })
     }
 
-    // GET /payments-summary - Get payment summary
     if (method === 'GET' && pathname === '/payments-summary') {
       const from = url.searchParams.get('from') || undefined
       const to = url.searchParams.get('to') || undefined
       const summary = memoryDB.getDatabaseSummary(from, to)
-      return new Response(JSON.stringify(summary), {
-        status: 200,
-      })
+      return new Response(JSON.stringify(summary), { status: 200 })
     }
 
-    // DELETE /admin/purge - Purge database
     if (method === 'DELETE' && pathname === '/admin/purge') {
       await memoryDB.purgeDatabase()
       return new Response(
@@ -42,20 +35,14 @@ async function handleRequest(req: Request): Promise<Response> {
           message: 'MemoryDB purged successfully',
           timestamp: new Date().toISOString(),
         }),
-        {
-          status: 200,
-        }
+        { status: 200 }
       )
     }
 
-    return new Response('Not Found', {
-      status: 404,
-    })
+    return new Response('Not Found', { status: 404 })
   } catch (error: any) {
     console.error('MemoryDB request error:', error)
-    return new Response(error.message || 'Internal Server Error', {
-      status: 500,
-    })
+    return new Response(error.message || 'Internal Server Error', { status: 500 })
   }
 }
 
