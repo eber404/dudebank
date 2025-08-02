@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+import { Queue } from './queue-service'
 
 interface BatchItem {
   payments: ProcessedPayment[]
@@ -9,13 +10,14 @@ interface BatchItem {
 
 export class DatabaseClient {
   private readonly socketPath: string
-  private batchQueue: BatchItem[] = []
+  private batchQueue: Queue<BatchItem>
   private batchTimer: Timer | null = null
   private readonly batchSize = config.databaseClient.batchSize
   private readonly batchTimeout = config.databaseClient.batchTimeoutMs
 
   constructor() {
     this.socketPath = config.databaseSocketPath
+    this.batchQueue = new Queue<BatchItem>()
   }
 
   private async sendHttpRequest(
@@ -38,9 +40,13 @@ export class DatabaseClient {
   }
 
   private async flushBatch() {
-    if (this.batchQueue.length === 0) return
+    if (this.batchQueue.isEmpty) return
 
-    const currentBatch = this.batchQueue.splice(0, this.batchQueue.length)
+    const currentBatch: BatchItem[] = []
+    while (!this.batchQueue.isEmpty) {
+      const item = this.batchQueue.dequeue()
+      if (item) currentBatch.push(item)
+    }
 
     if (this.batchTimer) {
       clearTimeout(this.batchTimer)
@@ -72,13 +78,13 @@ export class DatabaseClient {
     if (!payments.length) return
 
     return new Promise((resolve, reject) => {
-      this.batchQueue.push({
+      this.batchQueue.enqueue({
         payments,
         resolve,
         reject,
       })
 
-      if (this.batchQueue.length >= this.batchSize) {
+      if (this.batchQueue.size >= this.batchSize) {
         this.flushBatch()
       } else {
         this.scheduleBatchFlush()
