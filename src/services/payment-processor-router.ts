@@ -67,6 +67,11 @@ export class PaymentProcessorRouter {
     }
   }
 
+  private delay = async (delay_ms = 1000) =>
+    new Promise((resolve) => setTimeout(resolve, delay_ms))
+
+  private fuckin_delay_ms = 75
+
   async processPaymentWithRetry(
     payment: PaymentRequest,
     requestedAt: string,
@@ -85,10 +90,13 @@ export class PaymentProcessorRouter {
         requestedAt: response.requestedAt,
       }
     } catch (error) {
-      const alternativeProcessor =
-        processor.type === 'default'
-          ? this.processors.get('fallback')!
-          : this.processors.get('default')!
+      // const alternativeProcessor =
+      //   processor.type === 'default'
+      //     ? this.processors.get('fallback')!
+      //     : this.processors.get('default')!
+      await this.delay(this.fuckin_delay_ms)
+      this.fuckin_delay_ms + 75
+      const alternativeProcessor = this.processors.get('default')!
 
       return this.processPaymentWithRetry(
         payment,

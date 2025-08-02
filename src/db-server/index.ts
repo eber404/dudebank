@@ -10,25 +10,17 @@ async function handleRequest(req: Request): Promise<Response> {
   const method = req.method
   const pathname = url.pathname
 
-  // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
-
   if (method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders })
+    return new Response(null, { status: 200 })
   }
 
   try {
     // POST /payments/batch - Insert batch of payments
     if (method === 'POST' && pathname === '/payments/batch') {
       const payments = (await req.json()) as ProcessedPayment[]
-      await memoryDB.persistPayments(payments)
-      return new Response(`${payments.length} payments stored`, {
+      memoryDB.persistPayments(payments)
+      return new Response(null, {
         status: 200,
-        headers: corsHeaders,
       })
     }
 
@@ -36,13 +28,9 @@ async function handleRequest(req: Request): Promise<Response> {
     if (method === 'GET' && pathname === '/payments-summary') {
       const from = url.searchParams.get('from') || undefined
       const to = url.searchParams.get('to') || undefined
-      const summary = await memoryDB.getDatabaseSummary(from, to)
+      const summary = memoryDB.getDatabaseSummary(from, to)
       return new Response(JSON.stringify(summary), {
         status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
       })
     }
 
@@ -56,41 +44,17 @@ async function handleRequest(req: Request): Promise<Response> {
         }),
         {
           status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-    }
-
-    // GET /health - Health check
-    if (method === 'GET' && pathname === '/health') {
-      return new Response(
-        JSON.stringify({
-          status: 'healthy',
-          service: 'memorydb',
-          timestamp: new Date().toISOString(),
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
         }
       )
     }
 
     return new Response('Not Found', {
       status: 404,
-      headers: corsHeaders,
     })
   } catch (error: any) {
     console.error('MemoryDB request error:', error)
     return new Response(error.message || 'Internal Server Error', {
       status: 500,
-      headers: corsHeaders,
     })
   }
 }

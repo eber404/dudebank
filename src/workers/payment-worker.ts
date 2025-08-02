@@ -12,26 +12,29 @@ const mutex = new Mutex()
 
 async function processPayments() {
   try {
-    mutex.acquire()
-    while (queue.size) {
-      console.log(`queue size`, queue.size)
-      const batch = Array.from(
-        { length: Math.min(config.paymentWorker.batchSize, queue.size) },
-        () => queue.dequeue()
-      ).filter((item) => !!item)
-      if (!batch.length) continue
-      console.log(`batch size`, batch.length)
-      await paymentProcessor.processPaymentBatch(batch)
-    }
-  } finally {
-    mutex.release()
+    await mutex.runExclusive(async () => {
+      let remaining = queue.size
+      while (remaining > 0) {
+        const batch: PaymentRequest[] = []
+        const batchSize = Math.min(config.paymentWorker.batchSize, remaining)
+        for (let i = 0; i < batchSize; i++) {
+          const item = queue.dequeue()
+          if (item) batch.push(item)
+        }
+        if (batch.length === 0) break
+        await paymentProcessor.processPaymentBatch(batch)
+        remaining -= batch.length
+      }
+    })
+  } catch (err) {
+    console.log(`[worker] err`, err)
   }
 }
 
 function enqueue(input: PaymentRequest) {
   queue.enqueue(input)
   if (mutex.isLocked()) return
-  processPayments()
+  void processPayments()
 }
 
 parentPort?.on('message', enqueue)
