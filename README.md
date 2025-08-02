@@ -12,7 +12,7 @@ Repositório: https://github.com/eber404/dudebank
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Nginx     │───▶│   API 1     │───▶│   SQLite    │
+│   Nginx     │───▶│   API 1     │───▶│   Memory    │
 │Load Balancer│    │   API 2     │    │  Database   │
 │ (least_conn)│    │ (3001/3002) │    │ (MemoryDB)  │
 └─────────────┘    └─────────────┘    └─────────────┘
