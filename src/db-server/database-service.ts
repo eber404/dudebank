@@ -1,5 +1,5 @@
 import type { ProcessedPayment, PaymentSummary } from '@/types'
-import { MemoryStore } from '@/services/memory-store'
+import { MemoryStore } from './memory-store'
 
 export class DatabaseService {
   private memoryStore: MemoryStore
@@ -13,11 +13,7 @@ export class DatabaseService {
 
     for (const payment of payments) {
       const timestamp = Date.parse(payment.requestedAt)
-      this.memoryStore.add(
-        timestamp,
-        payment.amount,
-        payment.processor as 'default' | 'fallback'
-      )
+      this.memoryStore.add(timestamp, payment.amount)
     }
   }
 
