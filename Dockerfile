@@ -21,19 +21,19 @@ RUN bun build src/index.ts --outdir dist --target bun --minify && \
 
 RUN bun build src/index.ts --compile --outfile app-binary --target bun --minify
 
-
 RUN mkdir -p workers-bin && \
     bun build src/workers/payment-worker.ts --compile --outfile workers-bin/payment-worker --target bun --minify
 
-FROM alpine:3.19 AS production
+FROM ubuntu:22.04 AS production
 
-RUN apk add --no-cache \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -S appuser -u 1001 -G appgroup
+RUN groupadd -g 1001 appgroup && \
+    useradd -u 1001 -g appgroup -s /bin/sh appuser
 
 WORKDIR /app
 

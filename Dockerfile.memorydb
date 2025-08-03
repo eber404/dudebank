@@ -22,17 +22,19 @@ RUN bun build src/db-server/index.ts --outdir dist --target bun --minify
 
 RUN bun build src/db-server/index.ts --compile --outfile db-server-binary --target bun --minify
 
-FROM alpine:3.19 AS production
+FROM ubuntu:22.04 AS production
 
-RUN apk add --no-cache \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
-    sqlite \
-    sqlite-dev \
-    && rm -rf /var/cache/apk/*
+    sqlite3 \
+    libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-RUN addgroup -g 1001 -S dbgroup && \
-    adduser -S dbuser -u 1001 -G dbgroup
+RUN groupadd -g 1001 dbgroup && \
+    useradd -u 1001 -g dbgroup -s /bin/sh dbuser
 
 WORKDIR /app
 
