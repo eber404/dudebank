@@ -1,22 +1,52 @@
-FROM oven/bun:alpine
+FROM oven/bun:alpine AS base
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json bun.lockb tsconfig.json ./
+RUN bun install --frozen-lockfile --production
+
+FROM base AS development
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+EXPOSE 8081
+CMD ["bun", "run", "src/db-server/index.ts"]
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lockb tsconfig.json ./
+COPY src ./src
+
+RUN bun build src/db-server/index.ts --outdir dist --target bun --minify
+
+RUN bun build src/db-server/index.ts --compile --outfile db-server-binary --target bun --minify
+
+FROM alpine:3.19 AS production
+
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    sqlite \
+    sqlite-dev \
+    && rm -rf /var/cache/apk/*
+
+RUN addgroup -g 1001 -S dbgroup && \
+    adduser -S dbuser -u 1001 -G dbgroup
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lockb tsconfig.json ./
+COPY --from=builder --chown=dbuser:dbgroup /app/db-server-binary ./db-server-binary
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+RUN mkdir -p /app/data && \
+    chown -R dbuser:dbgroup /app/data
 
-# Copy source code
-COPY src ./src
+RUN chmod +x ./db-server-binary
 
-# Create volume for SQLite database
-RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 
-# Expose port
+USER dbuser
+
 EXPOSE 8081
 
-# Start the MemoryDB server
-CMD ["bun", "run", "src/db-server/index.ts"]
+CMD ["./db-server-binary"]
