@@ -1,6 +1,39 @@
 import type { PaymentRequest } from '@/types'
+import { Mutex } from 'async-mutex'
 
-import { paymentProcessor, paymentWorker } from '@/di-container'
+import { paymentProcessor } from '@/di-container'
+import { Queue } from '@/services/queue-service'
+import { config } from '@/config'
+
+const queue = new Queue<PaymentRequest>()
+const mutex = new Mutex()
+
+async function processPayments() {
+  try {
+    await mutex.runExclusive(async () => {
+      let remaining = queue.size
+      while (remaining > 0) {
+        const batch: PaymentRequest[] = []
+        const batchSize = Math.min(config.paymentWorker.batchSize, remaining)
+        for (let i = 0; i < batchSize; i++) {
+          const item = queue.dequeue()
+          if (item) batch.push(item)
+        }
+        if (batch.length === 0) break
+        await paymentProcessor.processPaymentBatch(batch)
+        remaining -= batch.length
+      }
+    })
+  } catch (err) {
+    console.log(`[server] payment processing error`, err)
+  }
+}
+
+function enqueue(input: PaymentRequest) {
+  queue.enqueue(input)
+  if (mutex.isLocked()) return
+  void processPayments()
+}
 
 async function handleRequest(req: Request): Promise<Response> {
   const { method, url } = req
@@ -9,7 +42,7 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
-      paymentWorker.postMessage(paymentInput)
+      enqueue(paymentInput)
       return new Response(null, {
         status: 200,
       })

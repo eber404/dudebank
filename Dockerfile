@@ -1,4 +1,4 @@
-FROM oven/bun:alpine AS base
+FROM oven/bun AS base
 WORKDIR /app
 
 FROM base AS deps
@@ -11,18 +11,14 @@ COPY . .
 EXPOSE 8080
 CMD ["bun", "run", "dev"]
 
-FROM base AS builder
+FROM oven/bun AS builder
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN bun build src/index.ts --outdir dist --target bun --minify && \
-    mkdir -p dist/workers && \
-    bun build src/workers/payment-worker.ts --outdir dist/workers --target bun --minify
+RUN bun build src/index.ts --outdir dist --target bun --minify
 
-RUN bun build src/index.ts --compile --outfile app-binary --target bun --minify
-
-RUN mkdir -p workers-bin && \
-    bun build src/workers/payment-worker.ts --compile --outfile workers-bin/payment-worker --target bun --minify
+RUN bun build src/index.ts --compile --outfile ./app-binary --target bun --minify
 
 FROM ubuntu:22.04 AS production
 
@@ -38,11 +34,8 @@ RUN groupadd -g 1001 appgroup && \
 WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/app-binary ./app-binary
-COPY --from=builder --chown=appuser:appgroup /app/workers-bin ./workers-bin
-COPY --from=builder --chown=appuser:appgroup /app/dist/workers ./dist/workers
 
-RUN chmod +x ./app-binary && \
-    chmod +x ./workers-bin/payment-worker
+RUN chmod +x ./app-binary
 
 USER appuser
 

@@ -1,4 +1,4 @@
-FROM oven/bun:alpine AS base
+FROM oven/bun AS base
 WORKDIR /app
 
 FROM base AS deps
@@ -8,19 +8,18 @@ RUN bun install --frozen-lockfile --production
 FROM base AS development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN mkdir -p /app/data
-VOLUME ["/app/data"]
 EXPOSE 8081
 CMD ["bun", "run", "src/db-server/index.ts"]
 
-FROM base AS builder
+FROM oven/bun AS builder
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json bun.lockb tsconfig.json ./
 COPY src ./src
 
 RUN bun build src/db-server/index.ts --outdir dist --target bun --minify
 
-RUN bun build src/db-server/index.ts --compile --outfile db-server-binary --target bun --minify
+RUN bun build src/db-server/index.ts --compile --outfile ./db-server-binary --target bun --minify
 
 FROM ubuntu:22.04 AS production
 
@@ -40,12 +39,7 @@ WORKDIR /app
 
 COPY --from=builder --chown=dbuser:dbgroup /app/db-server-binary ./db-server-binary
 
-RUN mkdir -p /app/data && \
-    chown -R dbuser:dbgroup /app/data
-
 RUN chmod +x ./db-server-binary
-
-VOLUME ["/app/data"]
 
 USER dbuser
 
