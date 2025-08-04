@@ -7,10 +7,6 @@
     "dev": "bun --watch run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target node",
     "start": "bun run dist/index.js",
-    "docker:build": "docker compose -f docker-compose.yml build",
-    "docker:up": "docker compose -f docker-compose.yml up",
-    "docker:down": "docker compose -f docker-compose.yml down",
-    "docker:start:clean": "./scripts/docker-start-clean.sh",
     "type-check": "bunx tsc --noEmit"
   },
   "peerDependencies": {
