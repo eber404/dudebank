@@ -21,7 +21,7 @@ services:
       resources:
         limits:
           cpus: '0.6'
-          memory: '120MB'
+          memory: '140MB'
 
   api2:
     <<: *api-service
@@ -44,8 +44,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: '90MB'
+          cpus: '0.05'
+          memory: '15MB'
 
   nginx:
     container_name: nginx
@@ -65,8 +65,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.1'
-          memory: '20MB'
+          cpus: '0.25'
+          memory: '55MB'
 
 networks:
   backend:

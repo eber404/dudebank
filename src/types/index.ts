@@ -28,7 +28,6 @@ export interface ProcessedPayment {
   requestedAt: string
 }
 
-
 export interface PaymentProcessorRequest {
   correlationId: string
   amount: number
