@@ -16,12 +16,12 @@ services:
       - backend
       - payment-processor
     depends_on:
-      - memorydb
+      - database
     deploy:
       resources:
         limits:
-          cpus: '1.1'
-          memory: '240MB'
+          cpus: '1.25'
+          memory: '275MB'
 
   read_api:
     <<: *api-service
@@ -34,11 +34,11 @@ services:
           cpus: '0.1'
           memory: '40MB'
 
-  memorydb:
-    container_name: memorydb
+  database:
+    container_name: database
     build:
       context: .
-      dockerfile: Dockerfile.memorydb
+      dockerfile: Dockerfile.database
       target: development
     env_file:
       - .env
@@ -70,8 +70,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
-          memory: '55MB'
+          cpus: '0.1'
+          memory: '20MB'
 
 networks:
   backend:

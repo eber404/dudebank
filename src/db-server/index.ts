@@ -42,12 +42,14 @@ async function handleRequest(req: Request): Promise<Response> {
     return new Response('Not Found', { status: 404 })
   } catch (error: any) {
     console.error('MemoryDB request error:', error)
-    return new Response(error.message || 'Internal Server Error', { status: 500 })
+    return new Response(error.message || 'Internal Server Error', {
+      status: 500,
+    })
   }
 }
 
 export const memoryDBServer = {
-  async listen(socketPath: string = '/tmp/memorydb.sock') {
+  async listen(socketPath: string = '/tmp/db.sock') {
     try {
       await unlink(socketPath)
     } catch (error) {
@@ -67,5 +69,5 @@ export const memoryDBServer = {
 
 // Start server if this file is run directly
 if (import.meta.main) {
-  memoryDBServer.listen(Bun.env.MEMORYDB_SOCKET_PATH || '/tmp/memorydb.sock')
+  memoryDBServer.listen(Bun.env.DATABASE_SOCKET_PATH || '/tmp/db.sock')
 }
