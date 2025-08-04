@@ -1,3 +1,9 @@
-import { PaymentProcessor } from '@/services/payment-processor'
+import type { PaymentRequest } from '@/types'
 
-export const paymentProcessor = new PaymentProcessor()
+import { PaymentCommand } from '@/services/payment-command'
+import { PaymentQuery } from '@/services/payment-query'
+import { Queue } from '@/services/queue-service'
+
+export const paymentQueue = new Queue<PaymentRequest>()
+export const paymentCommand = new PaymentCommand(paymentQueue)
+export const paymentQuery = new PaymentQuery()

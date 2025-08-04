@@ -1,39 +1,6 @@
 import type { PaymentRequest } from '@/types'
-import { Mutex } from 'async-mutex'
 
-import { paymentProcessor } from '@/di-container'
-import { Queue } from '@/services/queue-service'
-import { config } from '@/config'
-
-const queue = new Queue<PaymentRequest>()
-const mutex = new Mutex()
-
-async function processPayments() {
-  try {
-    await mutex.runExclusive(async () => {
-      let remaining = queue.size
-      while (remaining > 0) {
-        const batch: PaymentRequest[] = []
-        const batchSize = Math.min(config.paymentWorker.batchSize, remaining)
-        for (let i = 0; i < batchSize; i++) {
-          const item = queue.dequeue()
-          if (item) batch.push(item)
-        }
-        if (batch.length === 0) break
-        await paymentProcessor.processPaymentBatch(batch)
-        remaining -= batch.length
-      }
-    })
-  } catch (err) {
-    console.log(`[server] payment processing error`, err)
-  }
-}
-
-function enqueue(input: PaymentRequest) {
-  queue.enqueue(input)
-  if (mutex.isLocked()) return
-  void processPayments()
-}
+import { paymentCommand, paymentQuery } from '@/di-container'
 
 async function handleRequest(req: Request): Promise<Response> {
   const { method, url } = req
@@ -42,7 +9,7 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
-      enqueue(paymentInput)
+      paymentCommand.enqueue(paymentInput)
       return new Response(null, {
         status: 200,
       })
@@ -51,14 +18,14 @@ async function handleRequest(req: Request): Promise<Response> {
     if (method === 'GET' && pathname === '/payments-summary') {
       const from = searchParams.get('from') || undefined
       const to = searchParams.get('to') || undefined
-      const summary = await paymentProcessor.getPaymentsSummary(from, to)
+      const summary = await paymentQuery.getPaymentsSummary(from, to)
       return new Response(JSON.stringify(summary), {
         status: 200,
       })
     }
 
     if (method === 'DELETE' && pathname === '/admin/purge') {
-      const results = paymentProcessor.purgeAll()
+      const results = await paymentCommand.purgeAll()
       const response = {
         message: 'Purge operation completed',
         results,
