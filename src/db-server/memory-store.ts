@@ -7,65 +7,56 @@ interface StoredItem {
 }
 
 export class MemoryStore {
-  private static readonly TIMESTAMP_BYTES = 4
-  private static readonly AMOUNT_BYTES = 4
-  private static readonly BYTES_PER_ITEM =
-    MemoryStore.TIMESTAMP_BYTES +
-    MemoryStore.AMOUNT_BYTES
-
-  private static readonly TIMESTAMP_OFFSET = 0
-  private static readonly AMOUNT_OFFSET = MemoryStore.TIMESTAMP_BYTES
-
-  private readonly buffer: ArrayBuffer
-  private readonly view: DataView
+  private readonly AMOUNT_MASK = 0x7ff
+  private readonly TIMESTAMP_MASK = 0x1fffff
+  
   private readonly createdAt: number
-  private writeIndex = 0
-  private itemCount = 0
+  private items: number[] = []
 
-  constructor(private readonly capacity: number = 17000) {
-    this.buffer = new ArrayBuffer(capacity * MemoryStore.BYTES_PER_ITEM)
-    this.view = new DataView(this.buffer)
+  constructor() {
     this.createdAt = Date.now()
   }
 
-  add(timestampMs: number, value: number) {
-    const offset = this.writeIndex * MemoryStore.BYTES_PER_ITEM
-    const scaledValue = Math.round(value * 100)
-    const relativeTimestamp = timestampMs - this.createdAt
-
-    this.view.setUint32(
-      offset + MemoryStore.TIMESTAMP_OFFSET,
-      relativeTimestamp
-    )
-    this.view.setUint32(offset + MemoryStore.AMOUNT_OFFSET, scaledValue)
-
-    this.writeIndex = (this.writeIndex + 1) % this.capacity
-    if (this.itemCount < this.capacity) {
-      this.itemCount++
+  private pack(amount: number, timestampMs: number): number {
+    const cents = (amount * 100 + 0.5) | 0
+    
+    if (cents > this.AMOUNT_MASK) {
+      throw new Error(`Amount muito alto: máximo R$ ${this.AMOUNT_MASK / 100} (atual: R$ ${amount})`)
     }
+    
+    const rel = timestampMs - this.createdAt
+    
+    if (rel < 0 || rel > this.TIMESTAMP_MASK) {
+      throw new Error(`Timestamp fora do range: máximo ${this.TIMESTAMP_MASK}ms (~${(this.TIMESTAMP_MASK/60000).toFixed(1)} min)`)
+    }
+    
+    return (rel << 11) | cents
+  }
+
+  private unpack(packed: number): { amount: number; timestamp: number } {
+    const cents = packed & this.AMOUNT_MASK
+    const rel = (packed >>> 11) & this.TIMESTAMP_MASK
+    
+    return {
+      amount: cents * 0.01,
+      timestamp: this.createdAt + rel
+    }
+  }
+
+  add(timestampMs: number, value: number) {
+    const packed = this.pack(value, timestampMs)
+    this.items.push(packed)
   }
 
   getAll() {
     const result: StoredItem[] = []
-    const isBufferFull = this.itemCount === this.capacity
-    const readStartIndex = isBufferFull ? this.writeIndex : 0
 
-    for (let i = 0; i < this.itemCount; i++) {
-      const readIndex = (readStartIndex + i) % this.capacity
-      const offset = readIndex * MemoryStore.BYTES_PER_ITEM
-
-      const relativeTimestamp = this.view.getUint32(
-        offset + MemoryStore.TIMESTAMP_OFFSET
-      )
-      const timestamp = this.createdAt + relativeTimestamp
-
-      const scaledValue = this.view.getUint32(
-        offset + MemoryStore.AMOUNT_OFFSET
-      )
+    for (const packed of this.items) {
+      const unpacked = this.unpack(packed)
 
       result.push({
-        timestamp,
-        value: scaledValue / 100,
+        timestamp: unpacked.timestamp,
+        value: unpacked.amount,
         processor: 'default',
       })
     }
@@ -74,7 +65,6 @@ export class MemoryStore {
   }
 
   async clear(): Promise<void> {
-    this.writeIndex = 0
-    this.itemCount = 0
+    this.items = []
   }
 }
