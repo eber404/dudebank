@@ -1,0 +1,29 @@
+# Arquivo de configuração para a ferramenta de hot-reload 'air'.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Comando para compilar e rodar sua aplicação.
+cmd = "go build -o ./tmp/loadbalancer ."
+# O binário que o 'air' deve executar após a compilação.
+bin = "./tmp/loadbalancer"
+# Arquivos e diretórios para observar. Adicione outros se necessário.
+include_ext = ["go", "tpl", "tmpl", "html"]
+# Diretórios a serem ignorados.
+exclude_dir = ["tmp", "vendor"]
+# Dispara a recompilação imediatamente ao iniciar.
+build_on_init = true
+# Adiciona um pequeno delay após um evento de arquivo para agrupar múltiplos eventos.
+delay = 1000 # ms
+
+[log]
+# Mostra o log de tempo.
+time = true
+
+[color]
+# Habilita cores no output para melhor legibilidade.
+main = "yellow"
+watcher = "cyan"
+build = "green"
+runner = "magenta"
