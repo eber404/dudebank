@@ -9,7 +9,7 @@ interface StoredItem {
 export class MemoryStore {
   private readonly AMOUNT_MASK = 0x7ff
   private readonly TIMESTAMP_MASK = 0x1fffff
-  
+
   private readonly createdAt: number
   private items: number[] = []
 
@@ -19,33 +19,42 @@ export class MemoryStore {
 
   private pack(amount: number, timestampMs: number): number {
     const cents = (amount * 100 + 0.5) | 0
-    
+
     if (cents > this.AMOUNT_MASK) {
-      throw new Error(`Amount muito alto: máximo R$ ${this.AMOUNT_MASK / 100} (atual: R$ ${amount})`)
+      throw new Error(
+        `Amount muito alto: máximo R$ ${
+          this.AMOUNT_MASK / 100
+        } (atual: R$ ${amount})`
+      )
     }
-    
+
     const rel = timestampMs - this.createdAt
-    
+
     if (rel < 0 || rel > this.TIMESTAMP_MASK) {
-      throw new Error(`Timestamp fora do range: máximo ${this.TIMESTAMP_MASK}ms (~${(this.TIMESTAMP_MASK/60000).toFixed(1)} min)`)
+      throw new Error(
+        `Timestamp fora do range: máximo ${this.TIMESTAMP_MASK}ms (~${(
+          this.TIMESTAMP_MASK / 60000
+        ).toFixed(1)} min)`
+      )
     }
-    
+
     return (rel << 11) | cents
   }
 
   private unpack(packed: number): { amount: number; timestamp: number } {
     const cents = packed & this.AMOUNT_MASK
     const rel = (packed >>> 11) & this.TIMESTAMP_MASK
-    
+
     return {
       amount: cents * 0.01,
-      timestamp: this.createdAt + rel
+      timestamp: this.createdAt + rel,
     }
   }
 
   add(timestampMs: number, value: number) {
     const packed = this.pack(value, timestampMs)
     this.items.push(packed)
+    console.log('add', new Date().toISOString())
   }
 
   getAll() {

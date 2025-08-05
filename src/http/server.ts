@@ -19,6 +19,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const from = searchParams.get('from') || undefined
       const to = searchParams.get('to') || undefined
       const summary = await paymentQuery.getPaymentsSummary(from, to)
+      console.log('/payments-summary', new Date().toISOString())
       return new Response(JSON.stringify(summary), {
         status: 200,
       })

@@ -1,13 +1,13 @@
 services:
-  write_api: &api-service
-    container_name: write_api
+  api-1: &api-service
+    container_name: api-1
     build:
       context: .
       target: development
     env_file:
       - .env
     environment:
-      - SERVER_SOCKET_PATH=/tmp/write_api.sock
+      - SERVER_SOCKET_PATH=/tmp/api_1.sock
     volumes:
       - .:/app
       - socket_data:/tmp
@@ -20,19 +20,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.25'
-          memory: '275MB'
+          cpus: '1.30'
+          memory: '295MB'
 
-  read_api:
+  api-2:
     <<: *api-service
-    container_name: read_api
+    container_name: api-2
     environment:
-      - SERVER_SOCKET_PATH=/tmp/read_api.sock
-    deploy:
-      resources:
-        limits:
-          cpus: '0.1'
-          memory: '40MB'
+      - SERVER_SOCKET_PATH=/tmp/api_2.sock
 
   database:
     container_name: database
@@ -61,8 +56,8 @@ services:
       - ./nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - socket_data:/tmp
     depends_on:
-      - write_api
-      - read_api
+      - api-1
+      - api-2
     networks:
       - backend
     ports:
