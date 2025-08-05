@@ -95,7 +95,7 @@ export class PaymentProcessorRouter {
       //     ? this.processors.get('fallback')!
       //     : this.processors.get('default')!
       await this.delay(this.fuckin_delay_ms)
-      this.fuckin_delay_ms + 75
+      this.fuckin_delay_ms += 75
       const alternativeProcessor = this.processors.get('default')!
 
       return this.processPaymentWithRetry(
