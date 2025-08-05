@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
+    "build": "bun build src/index.ts --outdir dist --target bun",
     "start": "bun run dist/index.js",
     "type-check": "bunx tsc --noEmit"
   },
@@ -13,8 +13,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "async-mutex": "^0.5.0",
-    "decimal.js": "^10.6.0"
+    "async-mutex": "^0.5.0"
   },
   "devDependencies": {
     "@types/bun": "latest"

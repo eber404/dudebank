@@ -1,5 +1,3 @@
-import Decimal from 'decimal.js'
-
 import type { PaymentSummary } from '@/types'
 
 import { DatabaseClient } from './database-client'
@@ -32,8 +30,6 @@ export class PaymentQuery {
   }
 
   private roundToComercialAmount(amount: number): number {
-    return new Decimal(amount)
-      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-      .toNumber()
+    return parseFloat(amount.toFixed(2))
   }
 }
