@@ -6,10 +6,12 @@ import type {
   ProcessorType,
   ProcessedPayment,
 } from '@/types'
+import { DLQService } from './dlq-service'
 
 export class PaymentProcessorRouter {
-  private processors: Map<ProcessorType, PaymentProcessor> = new Map()
+  public processors: Map<ProcessorType, PaymentProcessor> = new Map()
   private optimalProcessor: PaymentProcessor
+  private dlqService: DLQService
 
   constructor() {
     this.processors = new Map<ProcessorType, PaymentProcessor>([
@@ -23,9 +25,10 @@ export class PaymentProcessorRouter {
       ],
     ])
     this.optimalProcessor = this.processors.get('default')!
+    this.dlqService = new DLQService(this)
   }
 
-  private async makePaymentRequest(
+  public async makePaymentRequest(
     payment: PaymentRequest,
     requestedAt: string,
     processor?: PaymentProcessor
@@ -69,42 +72,22 @@ export class PaymentProcessorRouter {
     }
   }
 
-  private delay = async (delay_ms = 1000) =>
-    new Promise((resolve) => setTimeout(resolve, delay_ms))
-
-  private fuckin_delay_ms = 75
 
   async processPaymentWithRetry(
     payment: PaymentRequest,
-    requestedAt: string,
-    processor = this.processors.get('default')!
+    requestedAt: string
   ): Promise<ProcessedPayment> {
+    // Tenta default primeiro
     try {
-      const response = await this.makePaymentRequest(
-        payment,
-        requestedAt,
-        processor
-      )
-      return {
-        amount: response.amount,
-        correlationId: response.correlationId,
-        processor: response.processor,
-        requestedAt: response.requestedAt,
-      }
+      return await this.makePaymentRequest(payment, requestedAt, this.processors.get('default')!)
     } catch (error) {
-      // const alternativeProcessor =
-      //   processor.type === 'default'
-      //     ? this.processors.get('fallback')!
-      //     : this.processors.get('default')!
-      await this.delay(this.fuckin_delay_ms)
-      this.fuckin_delay_ms += 75
-      const alternativeProcessor = this.processors.get('default')!
-
-      return this.processPaymentWithRetry(
-        payment,
-        requestedAt,
-        alternativeProcessor
-      )
+      // Tenta fallback
+      try {
+        return await this.makePaymentRequest(payment, requestedAt, this.processors.get('fallback')!)
+      } catch (fallbackError) {
+        // Ambos falharam: envia para DLQ e espera resultado
+        return await this.dlqService.enqueueWithPromise(payment, requestedAt)
+      }
     }
   }
 }
