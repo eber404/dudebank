@@ -24,8 +24,4 @@ export const config = {
   paymentRouter: {
     requestTimeoutMs: 3000,
   },
-  databaseClient: {
-    batchSize: 300,
-    batchTimeoutMs: 8,
-  },
 }
