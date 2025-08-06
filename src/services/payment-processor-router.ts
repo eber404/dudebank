@@ -46,6 +46,8 @@ export class PaymentProcessorRouter {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Connection: 'keep-alive',
+        'Keep-Alive': 'timeout=5, max=100',
       },
       body: JSON.stringify(paymentData),
       signal: controller.signal,

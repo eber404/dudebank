@@ -27,7 +27,11 @@ export class DatabaseClient {
   ): Promise<any> {
     const response = await fetch(`http://localhost${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: {
+        'Content-Type': 'application/json',
+        Connection: 'keep-alive',
+        'Keep-Alive': 'timeout=5, max=100',
+      },
       body: body ? JSON.stringify(body) : undefined,
       unix: this.socketPath,
     })

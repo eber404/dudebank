@@ -10,6 +10,11 @@ async function handleRequest(req: Request): Promise<Response> {
   const method = req.method
   const pathname = url.pathname
 
+  const headers = {
+    Connection: 'keep-alive',
+    'Keep-Alive': 'timeout=5, max=100',
+  }
+
   if (method === 'OPTIONS') {
     return new Response(null, { status: 200 })
   }
@@ -25,7 +30,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const from = url.searchParams.get('from') || undefined
       const to = url.searchParams.get('to') || undefined
       const summary = memoryDB.getDatabaseSummary(from, to)
-      return new Response(JSON.stringify(summary), { status: 200 })
+      return new Response(JSON.stringify(summary), { status: 200, headers })
     }
 
     if (method === 'DELETE' && pathname === '/admin/purge') {
@@ -35,15 +40,16 @@ async function handleRequest(req: Request): Promise<Response> {
           message: 'MemoryDB purged successfully',
           timestamp: new Date().toISOString(),
         }),
-        { status: 200 }
+        { status: 200, headers }
       )
     }
 
-    return new Response('Not Found', { status: 404 })
+    return new Response('Not Found', { status: 404, headers })
   } catch (error: any) {
     console.error('MemoryDB request error:', error)
     return new Response(error.message || 'Internal Server Error', {
       status: 500,
+      headers,
     })
   }
 }

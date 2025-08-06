@@ -6,14 +6,22 @@ async function handleRequest(req: Request): Promise<Response> {
   const { method, url } = req
   const { pathname, searchParams } = new URL(url)
 
+  const headers = {
+    Connection: 'keep-alive',
+    'Keep-Alive': 'timeout=5, max=100',
+  }
+
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
-      console.log(`[HTTP] Received payment: ${paymentInput.correlationId}, amount: ${paymentInput.amount}`)
+      console.log(
+        `[HTTP] Received payment: ${paymentInput.correlationId}, amount: ${paymentInput.amount}`
+      )
       paymentCommand.enqueue(paymentInput)
       console.log(`[HTTP] Payment enqueued: ${paymentInput.correlationId}`)
       return new Response(null, {
         status: 200,
+        headers,
       })
     }
 
@@ -24,6 +32,7 @@ async function handleRequest(req: Request): Promise<Response> {
       console.log('/payments-summary', new Date().toISOString())
       return new Response(JSON.stringify(summary), {
         status: 200,
+        headers,
       })
     }
 
@@ -37,17 +46,20 @@ async function handleRequest(req: Request): Promise<Response> {
 
       return new Response(JSON.stringify(response), {
         status: 200,
+        headers,
       })
     }
 
     return new Response('Not Found', {
       status: 404,
+      headers,
     })
   } catch (error: any) {
     console.error('Request handling error:', error)
     return new Response(
       JSON.stringify({
         error: 'Internal Server Error',
+        headers,
       }),
       {
         status: error.status || 500,
