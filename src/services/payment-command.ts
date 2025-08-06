@@ -55,22 +55,32 @@ export class PaymentCommand {
   async processPayments() {
     try {
       await this.mutex.runExclusive(async () => {
-        let remaining = this.queue.size
-        while (remaining > 0) {
-          const batch: PaymentRequest[] = []
-          const batchSize = Math.min(config.paymentWorker.batchSize, remaining)
-          for (let i = 0; i < batchSize; i++) {
-            const item = this.queue.dequeue()
-            if (item) batch.push(item)
-          }
-          if (batch.length === 0) break
+        // Processa apenas UM batch por vez
+        const batch = this.getNextBatch()
+        if (batch.length > 0) {
           await this.processPaymentBatch(batch)
-          remaining -= batch.length
+        }
+
+        // Yield control back to event loop - API "respira"
+        if (this.queue.size > 0) {
+          setImmediate(() => this.processPayments()) // ✅ Non-blocking recursion
         }
       })
     } catch (err) {
       console.log(`[payment-command] processing error`, err)
     }
+  }
+
+  private getNextBatch(): PaymentRequest[] {
+    const batch: PaymentRequest[] = []
+    const batchSize = Math.min(config.paymentWorker.batchSize, this.queue.size)
+
+    for (let i = 0; i < batchSize; i++) {
+      const item = this.queue.dequeue()
+      if (item) batch.push(item)
+    }
+
+    return batch
   }
 
   enqueue(input: PaymentRequest) {
