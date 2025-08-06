@@ -21,7 +21,7 @@ services:
       resources:
         limits:
           cpus: '0.675'
-          memory: '135MB'
+          memory: '150MB'
 
   api-2:
     <<: *api-service
@@ -45,28 +45,28 @@ services:
       resources:
         limits:
           cpus: '0.05'
-          memory: '15MB'
+          memory: '25MB'
 
-  load-balancer:
-    container_name: load-balancer
-    build:
-      context: ./load-balancer
-      target: production
-    restart: unless-stopped
+  balancer:
+    container_name: balancer
+    image: openresty/openresty:bullseye
+    env_file:
+      - .env
     volumes:
+      - ./nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
       - socket_data:/tmp
+    depends_on:
+      - api-1
+      - api-2
     networks:
       - backend
     ports:
       - '9999:80'
-    depends_on:
-      - api-1
-      - api-2
     deploy:
       resources:
         limits:
           cpus: '0.1'
-          # memory: '65MB'
+          memory: '25MB'
 
 networks:
   backend:
