@@ -107,6 +107,12 @@ export class DatabaseClient {
     return await this.sendHttpRequest(`/payments-summary${query}`)
   }
 
+  async flushAllPendingBatches(): Promise<void> {
+    if (!this.batchQueue.isEmpty || this.batchTimer) {
+      await this.flushBatch()
+    }
+  }
+
   async purgeDatabase(): Promise<void> {
     await this.sendHttpRequest('/admin/purge', 'DELETE')
   }

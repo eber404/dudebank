@@ -41,9 +41,13 @@ export class PaymentCommand {
       })
     )
 
-    console.log(`[PaymentCommand] Persisting batch of ${processedPayments.length} payments`)
+    console.log(
+      `[PaymentCommand] Persisting batch of ${processedPayments.length} payments`
+    )
     await this.db.persistPaymentsBatch(processedPayments)
-    console.log(`[PaymentCommand] Successfully persisted ${processedPayments.length} payments`)
+    console.log(
+      `[PaymentCommand] Successfully persisted ${processedPayments.length} payments`
+    )
 
     return processedPayments
   }
@@ -74,7 +78,9 @@ export class PaymentCommand {
     this.queue.enqueue(input)
     console.log(`[PaymentCommand] Queue size: ${this.queue.size}`)
     if (this.mutex.isLocked()) {
-      console.log(`[PaymentCommand] Mutex locked, payment will be processed later`)
+      console.log(
+        `[PaymentCommand] Mutex locked, payment will be processed later`
+      )
       return
     }
     console.log(`[PaymentCommand] Starting payment processing`)

@@ -13,6 +13,8 @@ export class PaymentQuery {
     from?: string,
     to?: string
   ): Promise<PaymentSummary> {
+    await this.db.flushAllPendingBatches()
+
     const res = await this.db.getDatabaseSummary(from, to)
 
     const summary: PaymentSummary = {
