@@ -9,7 +9,9 @@ async function handleRequest(req: Request): Promise<Response> {
   try {
     if (method === 'POST' && pathname === '/payments') {
       const paymentInput = (await req.json()) as PaymentRequest
+      console.log(`[HTTP] Received payment: ${paymentInput.correlationId}, amount: ${paymentInput.amount}`)
       paymentCommand.enqueue(paymentInput)
+      console.log(`[HTTP] Payment enqueued: ${paymentInput.correlationId}`)
       return new Response(null, {
         status: 200,
       })

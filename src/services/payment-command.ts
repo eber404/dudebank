@@ -1,11 +1,11 @@
 import { Mutex } from 'async-mutex'
 
 import type { PaymentRequest, ProcessedPayment } from '@/types'
+import { config } from '@/config'
 
 import { PaymentProcessorRouter } from './payment-processor-router'
 import { DatabaseClient } from './database-client'
 import { Queue } from './queue-service'
-import { config } from '@/config'
 
 export class PaymentCommand {
   private paymentRouter: PaymentProcessorRouter
@@ -41,7 +41,9 @@ export class PaymentCommand {
       })
     )
 
+    console.log(`[PaymentCommand] Persisting batch of ${processedPayments.length} payments`)
     await this.db.persistPaymentsBatch(processedPayments)
+    console.log(`[PaymentCommand] Successfully persisted ${processedPayments.length} payments`)
 
     return processedPayments
   }
@@ -68,8 +70,14 @@ export class PaymentCommand {
   }
 
   enqueue(input: PaymentRequest) {
+    console.log(`[PaymentCommand] Enqueueing payment: ${input.correlationId}`)
     this.queue.enqueue(input)
-    if (this.mutex.isLocked()) return
+    console.log(`[PaymentCommand] Queue size: ${this.queue.size}`)
+    if (this.mutex.isLocked()) {
+      console.log(`[PaymentCommand] Mutex locked, payment will be processed later`)
+      return
+    }
+    console.log(`[PaymentCommand] Starting payment processing`)
     void this.processPayments()
   }
 
