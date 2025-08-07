@@ -7,7 +7,7 @@ Repositório: https://github.com/eber404/dudebank
 ## 🏗️ Stack / Arquitetura
 
 - Bun / TypeScript
-- SQLite (persistente)
+- In-memory database
 - Nginx Load Balancer
 
 ```
