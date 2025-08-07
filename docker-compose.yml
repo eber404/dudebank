@@ -21,7 +21,7 @@ services:
       resources:
         limits:
           cpus: '0.675'
-          memory: '150MB'
+          memory: '135MB'
 
   api-2:
     <<: *api-service
@@ -45,7 +45,7 @@ services:
       resources:
         limits:
           cpus: '0.05'
-          memory: '25MB'
+          memory: '50MB'
 
   balancer:
     container_name: balancer
@@ -66,7 +66,7 @@ services:
       resources:
         limits:
           cpus: '0.1'
-          memory: '25MB'
+          memory: '30MB'
 
 networks:
   backend:
