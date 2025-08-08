@@ -14,7 +14,7 @@ export class DatabaseService {
 
     for (const payment of payments) {
       const timestamp = Date.parse(payment.requestedAt)
-      this.memoryStore.add(timestamp, payment.amount)
+      this.memoryStore.add(timestamp, payment.amount, payment.processor)
     }
   }
 

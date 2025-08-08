@@ -17,7 +17,7 @@ export class MemoryStore {
     this.createdAt = Date.now()
   }
 
-  private pack(amount: number, timestampMs: number): number {
+  private pack(amount: number, timestampMs: number, processor: ProcessorType): number {
     const cents = (amount * 100 + 0.5) | 0
 
     if (cents > this.AMOUNT_MASK) {
@@ -38,21 +38,24 @@ export class MemoryStore {
       )
     }
 
-    return (rel << 11) | cents
+    const processorBit = processor === 'fallback' ? 1 : 0
+    return (rel << 12) | (processorBit << 11) | cents
   }
 
-  private unpack(packed: number): { amount: number; timestamp: number } {
+  private unpack(packed: number): { amount: number; timestamp: number; processor: ProcessorType } {
     const cents = packed & this.AMOUNT_MASK
-    const rel = (packed >>> 11) & this.TIMESTAMP_MASK
+    const processorBit = (packed >>> 11) & 1
+    const rel = (packed >>> 12) & (this.TIMESTAMP_MASK >> 1)
 
     return {
       amount: cents * 0.01,
       timestamp: this.createdAt + rel,
+      processor: processorBit === 1 ? 'fallback' : 'default',
     }
   }
 
-  add(timestampMs: number, value: number) {
-    const packed = this.pack(value, timestampMs)
+  add(timestampMs: number, value: number, processor: ProcessorType) {
+    const packed = this.pack(value, timestampMs, processor)
     this.items.push(packed)
   }
 
@@ -65,7 +68,7 @@ export class MemoryStore {
       result.push({
         timestamp: unpacked.timestamp,
         value: unpacked.amount,
-        processor: 'default',
+        processor: unpacked.processor,
       })
     }
 

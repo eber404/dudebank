@@ -4,16 +4,16 @@ import type { PaymentRequest, ProcessedPayment } from '@/types'
 import { config } from '@/config'
 
 import { PaymentProcessorRouter } from './payment-processor-router'
-import { DatabaseClient } from './database-client'
+import { DatabaseService } from './database-service'
 import { Queue } from './queue-service'
 
 export class PaymentCommand {
   private paymentRouter: PaymentProcessorRouter
-  private db: DatabaseClient
+  private db: DatabaseService
   private queue: Queue<PaymentRequest>
   private mutex: Mutex
 
-  constructor(db: DatabaseClient) {
+  constructor(db: DatabaseService) {
     this.db = db
     this.paymentRouter = new PaymentProcessorRouter()
     this.queue = new Queue<PaymentRequest>()
@@ -38,7 +38,7 @@ export class PaymentCommand {
       })
     )
 
-    await this.db.persistPaymentsBatch(processedPayments)
+    this.db.persistPayments(processedPayments)
   }
 
   private async listenPaymentQueue() {

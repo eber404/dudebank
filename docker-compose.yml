@@ -7,6 +7,7 @@ services:
     env_file:
       - .env
     environment:
+      - INSTANCE_ID=1
       - SERVER_SOCKET_PATH=/tmp/api_1.sock
     volumes:
       - .:/app
@@ -15,8 +16,6 @@ services:
     networks:
       - backend
       - payment-processor
-    depends_on:
-      - database
     deploy:
       resources:
         limits:
@@ -27,25 +26,8 @@ services:
     <<: *api-service
     container_name: api-2
     environment:
+      - INSTANCE_ID=2
       - SERVER_SOCKET_PATH=/tmp/api_2.sock
-
-  database:
-    container_name: database
-    build:
-      context: .
-      dockerfile: Dockerfile.database
-      target: development
-    env_file:
-      - .env
-    volumes:
-      - .:/app
-      - socket_data:/tmp
-    command: ['bun', '--watch', 'run', 'src/db-server/index.ts']
-    deploy:
-      resources:
-        limits:
-          cpus: '0.05'
-          memory: '50MB'
 
   balancer:
     container_name: balancer

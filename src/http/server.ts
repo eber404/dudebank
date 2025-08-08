@@ -1,9 +1,5 @@
-import type { PaymentRequest, PaymentSummary } from '@/types'
-import { paymentCommand, databaseClient } from '@/di-container'
-
-function roundToComercialAmount(amount: number) {
-  return parseFloat(amount.toFixed(2))
-}
+import type { PaymentRequest } from '@/types'
+import { paymentCommand, paymentQuery } from '@/di-container'
 
 export const httpServer = {
   async listen(socketPath: string) {
@@ -26,23 +22,9 @@ export const httpServer = {
             const searchParams = new URLSearchParams(urlParams)
             const from = searchParams.get('from') ?? undefined
             const to = searchParams.get('to') ?? undefined
+            const localOnly = searchParams.get('local') === 'true'
 
-            const res = await databaseClient.getDatabaseSummary(from, to)
-
-            const summary: PaymentSummary = {
-              default: {
-                totalRequests: roundToComercialAmount(
-                  res.default.totalRequests
-                ),
-                totalAmount: roundToComercialAmount(res.default.totalAmount),
-              },
-              fallback: {
-                totalRequests: roundToComercialAmount(
-                  res.fallback.totalRequests
-                ),
-                totalAmount: roundToComercialAmount(res.fallback.totalAmount),
-              },
-            }
+            const summary = await paymentQuery.getPaymentsSummary(from, to, localOnly)
 
             return new Response(JSON.stringify(summary), {
               status: 200,
@@ -51,7 +33,8 @@ export const httpServer = {
         },
         '/admin/purge': {
           DELETE: async () => {
-            const results = await paymentCommand.purgeAll()
+            await paymentCommand.purgeAll()
+            const results = 'purged'
             const response = {
               message: 'Purge operation completed',
               results,

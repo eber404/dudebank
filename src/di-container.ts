@@ -1,5 +1,7 @@
 import { PaymentCommand } from '@/services/payment-command'
-import { DatabaseClient } from '@/services/database-client'
+import { DatabaseService } from '@/services/database-service'
+import { PaymentQuery } from '@/services/payment-query'
 
-export const databaseClient = new DatabaseClient()
-export const paymentCommand = new PaymentCommand(databaseClient)
+export const databaseService = new DatabaseService()
+export const paymentCommand = new PaymentCommand(databaseService)
+export const paymentQuery = new PaymentQuery(databaseService)

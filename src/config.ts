@@ -3,7 +3,6 @@ export const config = {
     port: parseInt(Bun.env.SERVER_PORT || '8080'),
     socketPath: Bun.env.SERVER_SOCKET_PATH || '/tmp/api.sock',
   },
-  databaseSocketPath: Bun.env.DATABASE_SOCKET_PATH || '/tmp/db.sock',
   paymentProcessors: {
     default: {
       url:
@@ -23,9 +22,5 @@ export const config = {
   },
   paymentRouter: {
     requestTimeoutMs: 3000,
-  },
-  databaseClient: {
-    batchSize: 300,
-    batchTimeoutMs: 8,
   },
 }
