@@ -1,6 +1,9 @@
-import type { PaymentRequest } from '@/types'
+import type { PaymentRequest, PaymentSummary } from '@/types'
+import { paymentCommand, databaseClient } from '@/di-container'
 
-import { paymentCommand, paymentQuery } from '@/di-container'
+function roundToComercialAmount(amount: number) {
+  return parseFloat(amount.toFixed(2))
+}
 
 export const httpServer = {
   async listen(socketPath: string) {
@@ -23,7 +26,24 @@ export const httpServer = {
             const searchParams = new URLSearchParams(urlParams)
             const from = searchParams.get('from') ?? undefined
             const to = searchParams.get('to') ?? undefined
-            const summary = await paymentQuery.getPaymentsSummary(from, to)
+
+            const res = await databaseClient.getDatabaseSummary(from, to)
+
+            const summary: PaymentSummary = {
+              default: {
+                totalRequests: roundToComercialAmount(
+                  res.default.totalRequests
+                ),
+                totalAmount: roundToComercialAmount(res.default.totalAmount),
+              },
+              fallback: {
+                totalRequests: roundToComercialAmount(
+                  res.fallback.totalRequests
+                ),
+                totalAmount: roundToComercialAmount(res.fallback.totalAmount),
+              },
+            }
+
             return new Response(JSON.stringify(summary), {
               status: 200,
             })

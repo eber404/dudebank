@@ -1,9 +1,5 @@
-import type { PaymentRequest } from '@/types'
-
 import { PaymentCommand } from '@/services/payment-command'
-import { PaymentQuery } from '@/services/payment-query'
-import { Queue } from '@/services/queue-service'
+import { DatabaseClient } from '@/services/database-client'
 
-export const paymentQueue = new Queue<PaymentRequest>()
-export const paymentCommand = new PaymentCommand(paymentQueue)
-export const paymentQuery = new PaymentQuery()
+export const databaseClient = new DatabaseClient()
+export const paymentCommand = new PaymentCommand(databaseClient)

@@ -1,9 +1,9 @@
-type Processor = 'default' | 'fallback'
+import type { ProcessorType } from '@/types'
 
 interface StoredItem {
   timestamp: number
   value: number
-  processor: Processor
+  processor: ProcessorType
 }
 
 export class MemoryStore {
@@ -54,7 +54,6 @@ export class MemoryStore {
   add(timestampMs: number, value: number) {
     const packed = this.pack(value, timestampMs)
     this.items.push(packed)
-    console.log('add', new Date().toISOString())
   }
 
   getAll() {

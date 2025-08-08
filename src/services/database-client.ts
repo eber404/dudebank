@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+
 import { Queue } from './queue-service'
 
 interface BatchItem {
@@ -20,15 +21,14 @@ export class DatabaseClient {
     this.batchQueue = new Queue<BatchItem>()
   }
 
-  private async sendHttpRequest(
+  private async httpClient(
     path: string,
     method = 'GET',
-    body?: any
+    body: any = undefined
   ): Promise<any> {
     const response = await fetch(`http://localhost${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined,
+      body: body && JSON.stringify(body),
       unix: this.socketPath,
     })
 
@@ -57,7 +57,7 @@ export class DatabaseClient {
       const allPayments = currentBatch.flatMap((item) => item.payments)
 
       if (allPayments.length > 0) {
-        await this.sendHttpRequest('/payments/batch', 'POST', allPayments)
+        await this.httpClient('/payments/batch', 'POST', allPayments)
       }
 
       currentBatch.forEach((item) => item.resolve())
@@ -100,10 +100,10 @@ export class DatabaseClient {
     if (from) params.set('from', from)
     if (to) params.set('to', to)
     const query = params.toString() ? '?' + params.toString() : ''
-    return await this.sendHttpRequest(`/payments-summary${query}`)
+    return await this.httpClient(`/payments-summary${query}`)
   }
 
   async purgeDatabase(): Promise<void> {
-    await this.sendHttpRequest('/admin/purge', 'DELETE')
+    await this.httpClient('/admin/purge', 'DELETE')
   }
 }
