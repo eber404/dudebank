@@ -49,11 +49,11 @@ services:
 
   balancer:
     container_name: balancer
-    image: openresty/openresty:bullseye
+    image: nginx:alpine
     env_file:
       - .env
     volumes:
-      - ./nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf
       - socket_data:/tmp
     depends_on:
       - api-1

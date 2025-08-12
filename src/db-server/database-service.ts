@@ -1,43 +1,51 @@
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+
 import { MemoryStore } from './memory-store'
+import { Mutex } from 'async-mutex'
 
 export class DatabaseService {
   private memoryStore: MemoryStore
+  private mutex: Mutex
 
   constructor() {
     this.memoryStore = new MemoryStore()
+    this.mutex = new Mutex()
   }
 
-  persistPayments(payments: ProcessedPayment[]) {
-    if (!payments.length) return
+  async persistPayments(payments: ProcessedPayment[]) {
+    this.mutex.runExclusive(() => {
+      if (!payments.length) return
 
-    for (const payment of payments) {
-      const timestamp = Date.parse(payment.requestedAt)
-      this.memoryStore.add(timestamp, payment.amount)
-    }
+      for (const payment of payments) {
+        this.memoryStore.add(Date.parse(payment.requestedAt), payment.amount)
+      }
+    })
   }
 
-  getDatabaseSummary(from?: string, to?: string) {
-    const allData = this.memoryStore.getAll()
+  async getDatabaseSummary(from?: string, to?: string) {
+    return this.mutex.runExclusive(async () => {
+      const allData = this.memoryStore.getAll()
 
-    const fromTimestamp = from ? Date.parse(from) : 0
-    const toTimestamp = to ? Date.parse(to) : Date.now()
+      const fromTimestamp = from ? Date.parse(from) : 0
+      const toTimestamp = to ? Date.parse(to) : Date.now()
 
-    const filteredData = allData.filter(
-      (item) => item.timestamp >= fromTimestamp && item.timestamp <= toTimestamp
-    )
+      const filteredData = allData.filter(
+        (item) =>
+          item.timestamp >= fromTimestamp && item.timestamp <= toTimestamp
+      )
 
-    const summary: PaymentSummary = {
-      default: { totalRequests: 0, totalAmount: 0 },
-      fallback: { totalRequests: 0, totalAmount: 0 },
-    }
+      const summary: PaymentSummary = {
+        default: { totalRequests: 0, totalAmount: 0 },
+        fallback: { totalRequests: 0, totalAmount: 0 },
+      }
 
-    for (const item of filteredData) {
-      summary[item.processor].totalRequests++
-      summary[item.processor].totalAmount += item.value
-    }
+      for (const item of filteredData) {
+        summary[item.processor].totalRequests++
+        summary[item.processor].totalAmount += item.value
+      }
 
-    return summary
+      return summary
+    })
   }
 
   async purgeDatabase(): Promise<void> {
