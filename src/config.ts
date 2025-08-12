@@ -27,8 +27,4 @@ export const config = {
     requestTimeoutMs: 1500,
     maxRetries: 3,
   },
-  databaseClient: {
-    batchSize: 300,
-    batchTimeoutMs: 8,
-  },
 }

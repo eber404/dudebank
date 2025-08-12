@@ -65,7 +65,14 @@ export class PaymentCommand {
   }
 
   private async processQueueBatch() {
-    if (this.mutex.isLocked() || !this.queue.size) return
+    if (this.mutex.isLocked()) {
+      return
+    }
+
+    if (!this.queue) {
+      this.stopProcessingTimer()
+      return
+    }
 
     try {
       await this.mutex.runExclusive(async () => {
@@ -104,14 +111,11 @@ export class PaymentCommand {
     this.processTimer = null
   }
 
-  private isFirstRun = true
   enqueue(input: PaymentRequest) {
     this.queue.enqueue(input)
-    !this.isFirstRun && this.startProcessingTimer()
     if (this.queue.size >= config.paymentWorker.queueThreshold) {
-      !this.isFirstRun && this.stopProcessingTimer()
-      this.isFirstRun = false
       void this.processQueueBatch()
+      this.startProcessingTimer()
     }
   }
 
