@@ -1,4 +1,5 @@
 import { unlink } from 'fs/promises'
+import { decode } from '@msgpack/msgpack'
 
 import { DatabaseService } from '@/db-server/database-service'
 import type { ProcessedPayment } from '@/types'
@@ -25,7 +26,16 @@ export const memoryDBServer = {
       routes: {
         '/payments/batch': {
           POST: async (req) => {
-            const payments = (await req.json()) as ProcessedPayment[]
+            const contentType = req.headers.get('content-type')
+
+            let payments: ProcessedPayment[]
+            if (contentType === 'application/msgpack') {
+              const buffer = await req.arrayBuffer()
+              payments = decode(new Uint8Array(buffer)) as ProcessedPayment[]
+            } else {
+              payments = (await req.json()) as ProcessedPayment[]
+            }
+
             database.persistPayments(payments)
             return new Response(null, {
               status: 200,
@@ -48,7 +58,7 @@ export const memoryDBServer = {
         },
         '/admin/purge': {
           DELETE: async () => {
-            await database.purgeDatabase()
+            database.purgeDatabase()
             return new Response('MemoryDB purged successfully)', {
               status: 200,
               headers,
