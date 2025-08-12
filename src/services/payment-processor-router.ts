@@ -8,6 +8,7 @@ import type {
 
 export class PaymentProcessorRouter {
   private processors: Record<ProcessorType, PaymentProcessor>
+  private connectionCache: Map<string, { agent: any; lastUsed: number }>
 
   constructor() {
     this.processors = {
@@ -17,6 +18,32 @@ export class PaymentProcessorRouter {
         type: 'fallback',
       },
     }
+    this.connectionCache = new Map()
+
+    setInterval(() => this.cleanupIdleConnections(), 10000) //10s
+  }
+
+  private cleanupIdleConnections() {
+    const now = Date.now()
+    const maxIdleTime = 90000 // 90s
+
+    for (const [url, connection] of this.connectionCache.entries()) {
+      if (now - connection.lastUsed > maxIdleTime) {
+        this.connectionCache.delete(url)
+      }
+    }
+  }
+
+  private getOrCreateAgent(url: string) {
+    const existing = this.connectionCache.get(url)
+    if (existing) {
+      existing.lastUsed = Date.now()
+      return existing.agent
+    }
+
+    const agent = { keepalive: true }
+    this.connectionCache.set(url, { agent, lastUsed: Date.now() })
+    return agent
   }
 
   private async makePaymentRequest(
@@ -34,6 +61,8 @@ export class PaymentProcessorRouter {
       amount: payment.amount,
       requestedAt,
     }
+
+    this.getOrCreateAgent(processorUrl)
 
     const response = await fetch(`${processorUrl}/payments`, {
       method: 'POST',
