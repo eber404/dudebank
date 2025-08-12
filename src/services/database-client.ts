@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import type { ProcessedPayment, PaymentSummary } from '@/types'
+import { encode } from '@msgpack/msgpack'
 
 export class DatabaseClient {
   private readonly socketPath: string
@@ -33,7 +34,23 @@ export class DatabaseClient {
 
   async persistPaymentsBatch(payments: ProcessedPayment[]): Promise<void> {
     if (!payments.length) return
-    await this.httpClient('/payments/batch', 'POST', payments)
+    
+    // Usar MessagePack para serialização binária
+    const msgpackData = encode(payments)
+    
+    const response = await fetch(`http://localhost/payments/batch`, {
+      method: 'POST',
+      body: new Uint8Array(msgpackData),
+      unix: this.socketPath,
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/msgpack'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.statusText}`)
+    }
   }
 
   async getDatabaseSummary(

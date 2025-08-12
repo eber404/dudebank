@@ -12,7 +12,7 @@ export class DatabaseService {
     this.mutex = new Mutex()
   }
 
-  async persistPayments(payments: ProcessedPayment[]) {
+  persistPayments(payments: ProcessedPayment[]) {
     this.mutex.runExclusive(() => {
       if (!payments.length) return
 
@@ -23,7 +23,7 @@ export class DatabaseService {
   }
 
   async getDatabaseSummary(from?: string, to?: string) {
-    return this.mutex.runExclusive(async () => {
+    return this.mutex.runExclusive(() => {
       const allData = this.memoryStore.getAll()
 
       const fromTimestamp = from ? Date.parse(from) : 0
@@ -48,7 +48,7 @@ export class DatabaseService {
     })
   }
 
-  async purgeDatabase(): Promise<void> {
+  purgeDatabase() {
     this.memoryStore.clear()
     console.log('MemoryStore database purged successfully')
   }

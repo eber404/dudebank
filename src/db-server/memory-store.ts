@@ -12,6 +12,8 @@ export class MemoryStore {
 
   private readonly createdAt: number
   private items: number[] = []
+  private cachedResult: StoredItem[] | null = null
+  private cacheVersion = 0
 
   constructor() {
     this.createdAt = Date.now()
@@ -54,9 +56,15 @@ export class MemoryStore {
   add(timestampMs: number, value: number) {
     const packed = this.pack(value, timestampMs)
     this.items.push(packed)
+    this.cachedResult = null
+    this.cacheVersion++
   }
 
   getAll() {
+    if (this.cachedResult !== null) {
+      return this.cachedResult
+    }
+
     const result: StoredItem[] = []
 
     for (const packed of this.items) {
@@ -69,10 +77,13 @@ export class MemoryStore {
       })
     }
 
+    this.cachedResult = result
     return result
   }
 
   async clear(): Promise<void> {
     this.items = []
+    this.cachedResult = null
+    this.cacheVersion++
   }
 }
