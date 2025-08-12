@@ -12,6 +12,7 @@ export class PaymentCommand {
   private db: DatabaseClient
   private queue: Queue<PaymentRequest>
   private mutex: Mutex
+  private processTimer: Timer | null = null
 
   constructor(db: DatabaseClient) {
     this.db = db
@@ -20,9 +21,9 @@ export class PaymentCommand {
     this.mutex = new Mutex()
   }
 
-  async processPaymentBatch(payments: PaymentRequest[]) {
+  private async processPaymentBatch(payments: PaymentRequest[]) {
     const requestedAt = new Date().toISOString()
-    const processedPayments = await Promise.all(
+    const results = await Promise.allSettled(
       payments.map(async (payment) => {
         const processor = await this.paymentRouter.processPaymentWithRetry(
           payment,
@@ -38,34 +39,80 @@ export class PaymentCommand {
       })
     )
 
-    await this.db.persistPaymentsBatch(processedPayments)
+    const processedPayments: ProcessedPayment[] = []
+    const failedPayments: PaymentRequest[] = []
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        processedPayments.push(result.value)
+      } else {
+        const payment = payments[index]
+        if (payment) {
+          failedPayments.push(payment)
+          console.log(
+            `[PaymentCommand] Payment failed, re-queueing:`,
+            payment.correlationId
+          )
+        }
+      }
+    })
+
+    if (processedPayments.length > 0) {
+      await this.db.persistPaymentsBatch(processedPayments)
+    }
+
+    failedPayments.forEach((payment) => this.queue.enqueue(payment))
   }
 
-  private async listenPaymentQueue() {
+  private async processQueueBatch() {
+    if (this.mutex.isLocked() || !this.queue.size) return
+
     try {
       await this.mutex.runExclusive(async () => {
-        let remaining = this.queue.size
-        while (remaining > 0) {
-          const batch: PaymentRequest[] = []
-          const batchSize = Math.min(config.paymentWorker.batchSize, remaining)
-          for (let i = 0; i < batchSize; i++) {
-            const item = this.queue.dequeue()
-            if (item) batch.push(item)
-          }
-          if (batch.length === 0) break
-          await this.processPaymentBatch(batch)
-          remaining -= batch.length
+        const batch: PaymentRequest[] = []
+        const batchSize = Math.min(
+          config.paymentWorker.batchSize,
+          this.queue.size
+        )
+
+        for (let i = 0; i < batchSize; i++) {
+          const item = this.queue.dequeue()
+          if (!item) break
+          batch.push(item)
         }
+
+        if (batch.length === 0) return
+
+        await this.processPaymentBatch(batch)
       })
     } catch (err) {
       console.log(`[PaymentCommand] processing error`, err)
     }
   }
 
+  private startProcessingTimer() {
+    if (this.processTimer) return
+    this.processTimer = setInterval(
+      async () => this.processQueueBatch(),
+      config.paymentWorker.processIntervalMs
+    )
+  }
+
+  private stopProcessingTimer() {
+    if (!this.processTimer) return
+    clearInterval(this.processTimer)
+    this.processTimer = null
+  }
+
+  private isFirstRun = true
   enqueue(input: PaymentRequest) {
     this.queue.enqueue(input)
-    if (this.mutex.isLocked()) return
-    void this.listenPaymentQueue()
+    !this.isFirstRun && this.startProcessingTimer()
+    if (this.queue.size >= config.paymentWorker.queueThreshold) {
+      !this.isFirstRun && this.stopProcessingTimer()
+      this.isFirstRun = false
+      void this.processQueueBatch()
+    }
   }
 
   async purgeAll(): Promise<void> {

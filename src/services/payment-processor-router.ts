@@ -40,6 +40,7 @@ export class PaymentProcessorRouter {
       headers: {
         'Content-Type': 'application/json',
       },
+      keepalive: true,
       body: JSON.stringify(paymentData),
       signal: controller.signal,
     })
@@ -51,32 +52,25 @@ export class PaymentProcessorRouter {
     }
   }
 
-  private delay = async (delay_ms = 1000) =>
-    new Promise((resolve) => setTimeout(resolve, delay_ms))
-
-  private fuckin_delay_ms = 75
-
   async processPaymentWithRetry(
     payment: PaymentRequest,
     requestedAt: string,
-    processor = this.processors.default
+    processor = this.processors.default,
+    retryCount = 0
   ): Promise<ProcessorType> {
     try {
       await this.makePaymentRequest(payment, requestedAt, processor.url)
       return processor.type
     } catch (error) {
-      // change it for the final round maybe?
-      // const alternativeProcessor =
-      //   processor.type === 'default'
-      //     ? this.processors.get('fallback')!
-      //     : this.processors.get('default')!
-      await this.delay(this.fuckin_delay_ms)
-      this.fuckin_delay_ms += 75
-      const alternativeProcessor = this.processors.default
+      if (retryCount >= config.paymentRouter.maxRetries) {
+        throw error
+      }
+
       return this.processPaymentWithRetry(
         payment,
         requestedAt,
-        alternativeProcessor
+        undefined,
+        retryCount + 1
       )
     }
   }

@@ -5,6 +5,11 @@ import type { ProcessedPayment } from '@/types'
 
 const database = new DatabaseService()
 
+const headers = {
+  'Content-Type': 'application/json',
+  Connection: 'keep-alive',
+}
+
 export const memoryDBServer = {
   async listen(socketPath: string = '/tmp/db.sock') {
     try {
@@ -22,7 +27,10 @@ export const memoryDBServer = {
           POST: async (req) => {
             const payments = (await req.json()) as ProcessedPayment[]
             database.persistPayments(payments)
-            return new Response(null, { status: 200 })
+            return new Response(null, {
+              status: 200,
+              headers,
+            })
           },
         },
         '/payments-summary': {
@@ -31,20 +39,20 @@ export const memoryDBServer = {
             const searchParams = new URLSearchParams(urlParams)
             const from = searchParams.get('from') ?? undefined
             const to = searchParams.get('to') ?? undefined
-            const summary = database.getDatabaseSummary(from, to)
-            return new Response(JSON.stringify(summary), { status: 200 })
+            const summary = await database.getDatabaseSummary(from, to)
+            return new Response(JSON.stringify(summary), {
+              status: 200,
+              headers,
+            })
           },
         },
         '/admin/purge': {
           DELETE: async () => {
             await database.purgeDatabase()
-            return new Response(
-              JSON.stringify({
-                message: 'MemoryDB purged successfully',
-                timestamp: new Date().toISOString(),
-              }),
-              { status: 200 }
-            )
+            return new Response('MemoryDB purged successfully)', {
+              status: 200,
+              headers,
+            })
           },
         },
       },
